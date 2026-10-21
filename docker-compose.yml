@@ -1,41 +1,75 @@
+# Default Docker Compose configuration (Development Mode)
+# For dedicated dev mode: docker compose -f docker-compose.dev.yml up --build
+# For production mode:    docker compose -f docker-compose.prod.yml up -d --build
+
 services:
   db:
     image: postgres:15-alpine
+    container_name: food_erp_db
     environment:
-      POSTGRES_DB: food_erp
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-food_erp}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata_dev:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d food_erp"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-food_erp}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - food_erp_net
 
   backend:
-    build: ./backend
+    container_name: food_erp_backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
     environment:
-      DB_URL: jdbc:postgresql://db:5432/food_erp
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-food_erp}
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       PORT: "8080"
+      SPRING_PROFILES_ACTIVE: postgres
     ports:
       - "8080:8080"
+      - "5005:5005"
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/pom.xml:/app/pom.xml
+      - backend_m2_cache:/root/.m2
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - food_erp_net
 
   frontend:
-    build: ./frontend
+    container_name: food_erp_frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     environment:
       VITE_API_TARGET: http://backend:8080
+      CHOKIDAR_USEPOLLING: "true"
     ports:
       - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - backend
+    networks:
+      - food_erp_net
 
 volumes:
-  pgdata:
+  pgdata_dev:
+    name: food_erp_pgdata_dev
+  backend_m2_cache:
+    name: food_erp_backend_m2_dev
+
+networks:
+  food_erp_net:
+    name: food_erp_net

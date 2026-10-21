@@ -177,18 +177,71 @@ PORT=8080
 
 ---
 
-### 3. Running with Docker (alternative)
+### 3. Running with Docker (DevOps Environment)
 
-Run the full stack (PostgreSQL 15 + backend + frontend) with Docker Compose:
+Repository ini dilengkapi dengan arsitektur Docker terpisah untuk **Development** dan **Production**.
+
+#### 🛠️ A. Development Environment (Hot Reload + Volume Mounts)
+Cocok untuk pengembangan aktif:
+- **Frontend**: Vite dev server pada `http://localhost:5173` dengan Hot Module Replacement (HMR).
+- **Backend**: Spring Boot pada `http://localhost:8080` dengan volume mount source code, remote debug socket pada port `5005`, dan caching `.m2` dependency.
+- **Database**: PostgreSQL 15 pada port `5432` dengan healthcheck otomatis.
+
+Jalankan container dev:
 ```bash
-docker compose up -d --build
+# Menggunakan Docker Compose langsung:
+docker compose -f docker-compose.dev.yml up --build
+
+# Atau via npm script:
+npm run docker:dev
+```
+Untuk menghentikan:
+```bash
+docker compose -f docker-compose.dev.yml down
+# atau:
+npm run docker:dev:down
 ```
 
-- Frontend: http://localhost:5173 (Vite dev server, proxies `/api` to the backend container)
-- Backend API: http://localhost:8080
-- PostgreSQL: localhost:5432 (user `postgres`, password `postgres`, db `food_erp`, persisted in the `pgdata` volume)
+---
 
-Flyway migrations and the seeder run automatically on backend startup.
+#### 🚀 B. Production Environment (Multi-Stage Build + Nginx Reverse Proxy)
+Arsitektur siap rilis (Production-Ready) sesuai standar DevOps:
+- **Hardened Backend**: Multi-stage build menggunakan `eclipse-temurin:21-jre-alpine`, non-root user, container JVM memory flags (`MaxRAMPercentage=75%`), dan healthcheck via Actuator.
+- **High-Performance Frontend & Reverse Proxy**: Multi-stage build disajikan oleh Nginx Alpine dengan Gzip compression, immutable static cache, SPA fallback routing, dan internal proxy `/api/*` langsung ke container backend (bebas masalah CORS di production).
+- **Secure Database**: Port PostgreSQL tidak diekspos ke publik (hanya dalam network internal Docker).
+- **Logging**: Driver `json-file` dengan log rotation (`max-size: 10m-20m`) untuk mencegah disk kehabisan ruang.
+
+Langkah deployment production:
+```bash
+# 1. Salin template konfigurasi environment production
+cp .env.prod.example .env.prod
+
+# 2. Sesuaikan kredensial dan port jika diperlukan di .env.prod
+
+# 3. Jalankan container production di background (daemon):
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+
+# Atau via npm script:
+npm run docker:prod
+```
+
+Akses aplikasi di:
+- **Web App & API Gateway**: `http://localhost:80` (atau port yang ditentukan di `PROD_PORT`)
+- **Healthcheck**: `http://localhost:80/healthz` dan `http://localhost:80/actuator/health`
+
+Perintah DevOps praktis:
+```bash
+# Cek status & health seluruh container:
+docker compose -f docker-compose.prod.yml ps
+
+# Pantau streaming logs:
+docker compose -f docker-compose.prod.yml logs -f
+# atau:
+npm run docker:prod:logs
+
+# Hentikan container production:
+docker compose -f docker-compose.prod.yml down
+```
 
 ### 4. Running the Backend
 
@@ -264,6 +317,76 @@ npm test
 | **Sales** | `GET` | `/api/sales/orders` | Retrieve restaurant sales orders |
 | **Sales** | `POST` | `/api/sales/orders` | Create branch replenishment order |
 | **Sales** | `PATCH` | `/api/sales/orders/{id}/status` | Update SO status (`DELIVERED`, etc.) |
+
+---
+
+## 🔄 CI/CD & Automated VPS Deployment
+
+Repository ini telah dikonfigurasi dengan **GitHub Actions** (`.github/workflows/ci-cd.yml`) untuk pipeline DevOps otomatis:
+
+```
+[ Developer Git Push (main) ]
+              │
+              ▼
+ 1. [ Automated Testing ]
+    ├── Backend JUnit 5 & BDD Slices (Java 21)
+    └── Frontend Vitest & Vite Build (Node 20)
+              │
+              ▼ (Jika test sukses)
+ 2. [ Docker Buildx & Cache ]
+    ├── Build Backend image (Dockerfile.prod)
+    └── Build Frontend image (Dockerfile.prod)
+              │
+              ▼
+ 3. [ GitHub Container Registry (GHCR) ]
+    ├── ghcr.io/<owner>/restaurant-erp/backend:latest
+    └── ghcr.io/<owner>/restaurant-erp/frontend:latest
+              │
+              ▼ (Jika SSH Secret dikonfigurasi)
+ 4. [ Auto-Deploy ke VPS ]
+    └── SSH ➔ docker compose pull ➔ docker compose up -d (Zero downtime)
+```
+
+### 🎯 Kenapa Menggunakan Pre-built Images di VPS?
+Membangun Java Maven dan Vite di dalam VPS murah (1GB/2GB RAM) seringkali menyebabkan server *crash* atau *Out Of Memory (OOM)*. Dengan alur ini:
+- Server GitHub Actions (gratis, 16GB RAM) yang melakukan kompilasi dan build container.
+- VPS **hanya perlu menarik image jadi (pull)** dan menjalankannya dalam hitungan detik tanpa beban CPU/RAM!
+
+---
+
+### 🖥️ Panduan Setup Deployment di VPS
+
+#### A. Persiapan VPS (Cukup Sekali)
+1. Install **Docker** & **Docker Compose** di VPS Anda:
+   ```bash
+   curl -fsSL https://get.docker.com -o get-docker.sh
+   sudo sh get-docker.sh
+   ```
+2. Buat direktori aplikasi di VPS:
+   ```bash
+   sudo mkdir -p /opt/restaurant-erp
+   cd /opt/restaurant-erp
+   ```
+3. Salin file berikut ke direktori `/opt/restaurant-erp`:
+   - `docker-compose.prod.yml`
+   - `.env.prod.example` (lalu ubah namanya menjadi `.env.prod` dan ubah password DB)
+   - `infra/deploy.sh`
+
+#### B. Setup GitHub Secrets (Untuk Auto-Deploy Otomatis)
+Buka repository GitHub Anda ➔ **Settings** ➔ **Secrets and variables** ➔ **Actions** ➔ Klik **New repository secret**:
+
+| Secret Name | Deskripsi | Contoh |
+|---|---|---|
+| `VPS_HOST` | IP Publik VPS Anda | `103.123.45.67` |
+| `VPS_USERNAME` | User SSH VPS Anda | `ubuntu` atau `root` |
+| `VPS_SSH_KEY` | Private SSH Key Anda (`id_rsa` / `id_ed25519`) | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `VPS_PORT` | Port SSH *(opsional, default 22)* | `22` |
+| `VPS_APP_DIR` | Folder app di VPS *(opsional, default `/opt/restaurant-erp`)* | `/opt/restaurant-erp` |
+
+Setiap kali Anda melakukan `git push origin main`:
+1. GitHub Actions akan menguji kode.
+2. Membangun image Docker dan mempublikasikannya ke GHCR.
+3. Melakukan SSH ke VPS Anda, menarik image terbaru, dan me-restart container secara otomatis!
 
 ---
 

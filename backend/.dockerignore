@@ -1,6 +1,13 @@
 target/
-node_modules/
-dist/
+*.class
+.mvn/
+mvnw
+mvnw.cmd
+.git
+.gitignore
 *.log
 .env
-.env.local
+.env.*
+.vscode
+.idea
+HELP.md

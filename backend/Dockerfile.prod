@@ -1,0 +1,46 @@
+# ==========================================
+# Backend Production Multi-Stage Dockerfile
+# Stage 1: Build JAR using Maven
+# Stage 2: Minimal hardened JRE runtime
+# ==========================================
+
+# ---- Build Stage ----
+FROM maven:3.9-eclipse-temurin-21-alpine AS builder
+
+WORKDIR /build
+
+# Pre-fetch dependencies to leverage Docker layer caching
+COPY pom.xml .
+RUN mvn -B dependency:go-offline
+
+# Copy source code and build production jar
+COPY src ./src
+RUN mvn -B -DskipTests clean package
+
+# ---- Runtime Stage ----
+FROM eclipse-temurin:21-jre-alpine AS runner
+
+WORKDIR /app
+
+# Create a non-privileged user and group for security
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Copy compiled JAR from builder stage
+COPY --from=builder /build/target/*.jar /app/app.jar
+
+# Set correct ownership
+RUN chown -R appuser:appgroup /app
+
+USER appuser
+
+EXPOSE 8080
+
+# Production JVM optimizations for container environments
+ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError -Djava.security.egd=file:/dev/./urandom"
+ENV SPRING_PROFILES_ACTIVE=postgres
+
+# Healthcheck using Spring Boot Actuator
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=40s \
+  CMD wget --quiet --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

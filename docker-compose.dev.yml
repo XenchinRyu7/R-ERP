@@ -1,0 +1,75 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: food_erp_db_dev
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-food_erp}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-food_erp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - food_erp_dev_net
+
+  backend:
+    container_name: food_erp_backend_dev
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/${POSTGRES_DB:-food_erp}
+      DB_USERNAME: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      PORT: "8080"
+      SPRING_PROFILES_ACTIVE: postgres
+    ports:
+      - "8080:8080"
+      - "5005:5005"
+    volumes:
+      # Mount source files so edits are tracked in real-time
+      - ./backend/src:/app/src
+      - ./backend/pom.xml:/app/pom.xml
+      # Cache downloaded Maven dependencies
+      - backend_m2_cache:/root/.m2
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - food_erp_dev_net
+
+  frontend:
+    container_name: food_erp_frontend_dev
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      VITE_API_TARGET: http://backend:8080
+      CHOKIDAR_USEPOLLING: "true"
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount frontend code for live HMR
+      - ./frontend:/app
+      # Preserve container node_modules from host overrides
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - food_erp_dev_net
+
+volumes:
+  pgdata_dev:
+    name: food_erp_pgdata_dev
+  backend_m2_cache:
+    name: food_erp_backend_m2_dev
+
+networks:
+  food_erp_dev_net:
+    name: food_erp_dev_net

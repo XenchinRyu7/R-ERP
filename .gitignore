@@ -8,12 +8,17 @@ target/
 backend/target/
 *.class
 
-# Environment & IDE
+# Environment & Credentials
 .env
+.env.prod
 .env.local
+.env.*.local
 backend/.env
 backend/.env.local
+
+# IDE & System
 .DS_Store
 .idea/
 *.log
 *.tsbuildinfo
+.vscode/

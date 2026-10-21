@@ -1,0 +1,20 @@
+# ==========================================
+# Backend Development Dockerfile (Spring Boot)
+# ==========================================
+FROM maven:3.9-eclipse-temurin-21
+
+WORKDIR /app
+
+# Cache Maven dependencies layer
+COPY pom.xml .
+RUN mvn -B dependency:go-offline
+
+# Copy source code
+COPY src ./src
+
+# Expose Spring Boot web port (8080) and remote debug socket (5005)
+EXPOSE 8080 5005
+
+ENV SPRING_PROFILES_ACTIVE=postgres
+
+CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"]
