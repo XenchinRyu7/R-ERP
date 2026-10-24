@@ -2,6 +2,7 @@ package com.fooderp.backend.auth.entity;
 
 import com.fooderp.backend.masterdata.entity.Customer;
 import com.fooderp.backend.masterdata.entity.Supplier;
+import com.fooderp.backend.masterdata.entity.Warehouse;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -49,6 +50,10 @@ public class AppUser {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "supplier_id")
     private Supplier supplier;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "warehouse_id")
+    private Warehouse warehouse;
 
     @Column(name = "approval_notes", columnDefinition = "TEXT")
     private String approvalNotes;
@@ -192,6 +197,14 @@ public class AppUser {
 
     public void setSupplier(Supplier supplier) {
         this.supplier = supplier;
+    }
+
+    public Warehouse getWarehouse() {
+        return warehouse;
+    }
+
+    public void setWarehouse(Warehouse warehouse) {
+        this.warehouse = warehouse;
     }
 
     public String getApprovalNotes() {

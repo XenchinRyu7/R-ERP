@@ -9,6 +9,7 @@ import {
   MapPin,
   BoxSelect,
   Thermometer,
+  Building2,
 } from 'lucide-react';
 import {
   Table,
@@ -38,6 +39,7 @@ import {
   PurchaseOrder,
   Warehouse,
   Product,
+  AuthUser,
 } from '../types/erp';
 import { erpApi } from '../api/erpApi';
 import { getProductStorageLocation, WAREHOUSE_PROFILES } from '../utils/warehouseZones';
@@ -51,6 +53,7 @@ interface InventoryPageProps {
   onRefresh: () => void;
   preselectedPoForReceive?: PurchaseOrder | null;
   onClearPreselectedPo?: () => void;
+  currentUser?: AuthUser | null;
 }
 
 export const InventoryPage: React.FC<InventoryPageProps> = ({
@@ -62,10 +65,13 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
   onRefresh,
   preselectedPoForReceive,
   onClearPreselectedPo,
+  currentUser,
 }) => {
   const [activeTab, setActiveTab] = useState<'stocks' | 'receipts'>('stocks');
   const [search, setSearch] = useState('');
-  const [selectedWarehouse, setSelectedWarehouse] = useState<string>('all');
+  const [selectedWarehouse, setSelectedWarehouse] = useState<string>(
+    currentUser?.warehouseId || 'all'
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Receive Modal
@@ -228,6 +234,20 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
 
   return (
     <div className="space-y-6">
+      {currentUser?.warehouseName && (
+        <div className="p-3 bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-900/60 rounded-xl flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300 font-medium">
+            <Building2 className="w-4 h-4 text-blue-600 shrink-0" />
+            <span>
+              <strong>Fasilitas Penugasan Anda:</strong> {currentUser.warehouseName} ({currentUser.warehouseCode || ''}) &bull; Tampilan stok dan pergerakan difokuskan pada gudang tugas Anda.
+            </span>
+          </div>
+          <Chip size="sm" variant="flat" color="primary" className="text-[10px] font-bold">
+            Gudang Ditugaskan
+          </Chip>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <Tabs
           selectedKey={activeTab}

@@ -269,6 +269,9 @@ export interface AuthUser {
   customerName?: string;
   supplierId?: string;
   supplierName?: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  warehouseCode?: string;
   approvalNotes?: string;
   approvedBy?: string;
   approvedAt?: string;

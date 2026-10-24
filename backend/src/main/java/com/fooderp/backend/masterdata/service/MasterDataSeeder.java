@@ -171,6 +171,9 @@ public class MasterDataSeeder implements CommandLineRunner {
 
         Customer sampleCustomer = customerRepository.findAll().stream().findFirst().orElse(null);
         Supplier sampleSupplier = supplierRepository.findAll().stream().findFirst().orElse(null);
+        Warehouse whCold = warehouseRepository.findByCode("WH-COLD-01").orElse(null);
+        Warehouse whDry = warehouseRepository.findByCode("WH-DRY-02").orElse(null);
+        Warehouse whKitchen = warehouseRepository.findByCode("WH-KITCHEN-03").orElse(null);
 
         // 1. Superadmin
         com.fooderp.backend.auth.entity.AppUser admin = new com.fooderp.backend.auth.entity.AppUser(
@@ -199,8 +202,9 @@ public class MasterDataSeeder implements CommandLineRunner {
                 null,
                 null
         );
+        chef.setWarehouse(whKitchen);
 
-        // 3. Warehouse & Logistics Officer
+        // 3. Warehouse & Logistics Supervisor (HQ / All Facilities)
         com.fooderp.backend.auth.entity.AppUser warehouse = new com.fooderp.backend.auth.entity.AppUser(
                 UUID.randomUUID(),
                 "warehouse.budi",
@@ -213,6 +217,37 @@ public class MasterDataSeeder implements CommandLineRunner {
                 null,
                 null
         );
+        // Budi has null warehouse meaning Central Supervisor (access to all facilities)
+
+        // 3b. Dedicated Cold Storage Staff (WH-COLD-01 Priok)
+        com.fooderp.backend.auth.entity.AppUser whColdStaff = new com.fooderp.backend.auth.entity.AppUser(
+                UUID.randomUUID(),
+                "warehouse.agus",
+                "wh.cold@fooderp.com",
+                passwordEncoder.encode("warehouse123"),
+                "Agus Santoso (Cold Storage Op)",
+                com.fooderp.backend.auth.entity.UserRole.WAREHOUSE_LOGISTICS,
+                "+62 811-0000-005",
+                com.fooderp.backend.auth.entity.UserStatus.ACTIVE,
+                null,
+                null
+        );
+        whColdStaff.setWarehouse(whCold);
+
+        // 3c. Dedicated Dry Hub Staff (WH-DRY-02 Bekasi)
+        com.fooderp.backend.auth.entity.AppUser whDryStaff = new com.fooderp.backend.auth.entity.AppUser(
+                UUID.randomUUID(),
+                "warehouse.bambang",
+                "wh.dry@fooderp.com",
+                passwordEncoder.encode("warehouse123"),
+                "Bambang Wijaya (Dry Hub Op)",
+                com.fooderp.backend.auth.entity.UserRole.WAREHOUSE_LOGISTICS,
+                "+62 811-0000-006",
+                com.fooderp.backend.auth.entity.UserStatus.ACTIVE,
+                null,
+                null
+        );
+        whDryStaff.setWarehouse(whDry);
 
         // 4. Procurement Officer
         com.fooderp.backend.auth.entity.AppUser procure = new com.fooderp.backend.auth.entity.AppUser(
@@ -277,7 +312,7 @@ public class MasterDataSeeder implements CommandLineRunner {
         );
         mitraPending.setApprovalNotes("Newly applied franchise outlet in Menteng, awaits MOA verification");
 
-        userRepository.saveAll(List.of(admin, chef, warehouse, procure, mitraActive, vendorActive, mitraPending));
+        userRepository.saveAll(List.of(admin, chef, warehouse, whColdStaff, whDryStaff, procure, mitraActive, vendorActive, mitraPending));
         log.info("Default ERP staff and partner accounts seeded successfully!");
     }
 }

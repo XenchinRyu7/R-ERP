@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.util.UUID;
 
 public record CreateStaffRequest(
     @NotBlank(message = "Username is required")
@@ -25,5 +26,11 @@ public record CreateStaffRequest(
     String phone,
 
     @NotNull(message = "Role is required")
-    UserRole role
-) {}
+    UserRole role,
+
+    UUID warehouseId
+) {
+    public CreateStaffRequest(String username, String email, String password, String fullName, String phone, UserRole role) {
+        this(username, email, password, fullName, phone, role, null);
+    }
+}

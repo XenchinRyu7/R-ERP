@@ -272,6 +272,7 @@ export function App() {
                 users={users}
                 customers={customers}
                 suppliers={suppliers}
+                warehouses={warehouses}
                 onRefresh={loadData}
               />
             )}
@@ -323,6 +324,7 @@ export function App() {
                 onRefresh={loadData}
                 preselectedPoForReceive={preselectedPo}
                 onClearPreselectedPo={() => setPreselectedPo(null)}
+                currentUser={currentUser}
               />
             )}
             {activePage === 'production' && (

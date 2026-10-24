@@ -8,8 +8,10 @@ import com.fooderp.backend.auth.repository.AppUserRepository;
 import com.fooderp.backend.auth.security.JwtTokenProvider;
 import com.fooderp.backend.masterdata.entity.Customer;
 import com.fooderp.backend.masterdata.entity.Supplier;
+import com.fooderp.backend.masterdata.entity.Warehouse;
 import com.fooderp.backend.masterdata.repository.CustomerRepository;
 import com.fooderp.backend.masterdata.repository.SupplierRepository;
+import com.fooderp.backend.masterdata.repository.WarehouseRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +28,7 @@ public class AuthService {
     private final AppUserRepository userRepository;
     private final CustomerRepository customerRepository;
     private final SupplierRepository supplierRepository;
+    private final WarehouseRepository warehouseRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
 
@@ -33,11 +36,13 @@ public class AuthService {
             AppUserRepository userRepository,
             CustomerRepository customerRepository,
             SupplierRepository supplierRepository,
+            WarehouseRepository warehouseRepository,
             PasswordEncoder passwordEncoder,
             JwtTokenProvider tokenProvider) {
         this.userRepository = userRepository;
         this.customerRepository = customerRepository;
         this.supplierRepository = supplierRepository;
+        this.warehouseRepository = warehouseRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
     }
@@ -121,6 +126,11 @@ public class AuthService {
                 null
         );
 
+        if (request.warehouseId() != null) {
+            Warehouse warehouse = warehouseRepository.findById(request.warehouseId()).orElse(null);
+            user.setWarehouse(warehouse);
+        }
+
         AppUser saved = userRepository.save(user);
         return toDto(saved);
     }
@@ -197,6 +207,9 @@ public class AuthService {
                 user.getCustomer() != null ? user.getCustomer().getName() : null,
                 user.getSupplier() != null ? user.getSupplier().getId() : null,
                 user.getSupplier() != null ? user.getSupplier().getName() : null,
+                user.getWarehouse() != null ? user.getWarehouse().getId() : null,
+                user.getWarehouse() != null ? user.getWarehouse().getName() : null,
+                user.getWarehouse() != null ? user.getWarehouse().getCode() : null,
                 user.getApprovalNotes(),
                 user.getApprovedBy(),
                 user.getApprovedAt(),

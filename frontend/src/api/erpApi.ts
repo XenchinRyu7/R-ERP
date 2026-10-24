@@ -288,6 +288,7 @@ export const erpApi = {
     fullName: string;
     phone?: string;
     role: string;
+    warehouseId?: string;
   }) =>
     fetchJson<AuthUser>('/users/staff', {
       method: 'POST',

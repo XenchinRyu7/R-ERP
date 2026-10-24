@@ -9,6 +9,7 @@ import {
   LogOut,
   ShieldCheck,
   Building,
+  Building2,
   CheckCircle2,
   Sliders,
   Sparkles,
@@ -224,6 +225,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span>{currentUser.partnerName}</span>
                       </p>
                     )}
+                    {currentUser?.warehouseName && (
+                      <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 truncate mt-1 flex items-center gap-1">
+                        <Building2 className="w-3 h-3 shrink-0" />
+                        <span>Fasilitas: {currentUser.warehouseName}</span>
+                      </p>
+                    )}
                   </div>
                 </DropdownItem>
               </DropdownSection>
@@ -323,6 +330,12 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="font-semibold text-neutral-800 dark:text-neutral-200">{currentUser.supplierName}</span>
                 </div>
               )}
+              <div className="flex justify-between py-1.5 border-b border-neutral-100 dark:border-neutral-800">
+                <span className="text-neutral-500">Kantor / Lokasi Tugas:</span>
+                <span className="font-semibold text-neutral-800 dark:text-neutral-200">
+                  {currentUser?.warehouseName ? `${currentUser.warehouseName} (${currentUser.warehouseCode || ''})` : 'Kantor Pusat / Semua Fasilitas (HQ)'}
+                </span>
+              </div>
               <div className="flex justify-between py-1.5">
                 <span className="text-neutral-500">Status Akun:</span>
                 <span className="font-semibold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">

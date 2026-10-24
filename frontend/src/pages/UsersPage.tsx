@@ -4,6 +4,7 @@ import {
   UserPlus,
   ShieldCheck,
   Building,
+  Building2,
   Store,
   Truck,
   CheckCircle2,
@@ -31,13 +32,14 @@ import {
   Input,
   Textarea
 } from '@heroui/react';
-import { AuthUser, Customer, Supplier, UserRole, UserStatus } from '../types/erp';
+import { AuthUser, Customer, Supplier, Warehouse, UserRole, UserStatus } from '../types/erp';
 import { erpApi } from '../api/erpApi';
 
 interface UsersPageProps {
   users: AuthUser[];
   customers: Customer[];
   suppliers: Supplier[];
+  warehouses: Warehouse[];
   onRefresh: () => void;
 }
 
@@ -45,6 +47,7 @@ export const UsersPage: React.FC<UsersPageProps> = ({
   users,
   customers,
   suppliers,
+  warehouses,
   onRefresh,
 }) => {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -76,6 +79,7 @@ export const UsersPage: React.FC<UsersPageProps> = ({
   const [staffFullName, setStaffFullName] = useState('');
   const [staffPhone, setStaffPhone] = useState('');
   const [staffRole, setStaffRole] = useState<UserRole>('KITCHEN_MANAGER');
+  const [staffWarehouseId, setStaffWarehouseId] = useState<string>('');
 
   // Approve Mitra Form
   const [approvalAction, setApprovalAction] = useState<'APPROVE' | 'REJECT'>('APPROVE');
@@ -174,6 +178,7 @@ export const UsersPage: React.FC<UsersPageProps> = ({
         fullName: staffFullName,
         phone: staffPhone,
         role: staffRole,
+        warehouseId: staffWarehouseId || undefined,
       });
       onCloseCreateStaff();
       onRefresh();
@@ -183,6 +188,7 @@ export const UsersPage: React.FC<UsersPageProps> = ({
       setStaffPassword('');
       setStaffFullName('');
       setStaffPhone('');
+      setStaffWarehouseId('');
     } catch (err: any) {
       alert(`Gagal membuat staf: ${err.message}`);
     } finally {
@@ -300,6 +306,7 @@ export const UsersPage: React.FC<UsersPageProps> = ({
           <TableHeader>
             <TableColumn>PENGGUNA / PIC</TableColumn>
             <TableColumn>ROLE & HAK AKSES</TableColumn>
+            <TableColumn>KANTOR / PENUGASAN</TableColumn>
             <TableColumn>TIPE MITRA / NAMA USAHA</TableColumn>
             <TableColumn>STATUS</TableColumn>
             <TableColumn>TANGGAL DAFTAR</TableColumn>
@@ -316,6 +323,27 @@ export const UsersPage: React.FC<UsersPageProps> = ({
                   <Chip size="sm" variant="flat" color={getRoleBadgeColor(user.role)} className="font-bold text-xs uppercase">
                     {user.role.replace('_', ' ')}
                   </Chip>
+                </TableCell>
+                <TableCell>
+                  {user.warehouseName ? (
+                    <div className="flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                      <div>
+                        <span className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 block">
+                          {user.warehouseName}
+                        </span>
+                        <span className="text-[10px] font-mono text-neutral-400">
+                          {user.warehouseCode}
+                        </span>
+                      </div>
+                    </div>
+                  ) : user.role === 'MITRA_OUTLET' ? (
+                    <span className="text-xs text-amber-600 font-medium">Cabang Outlet Resto</span>
+                  ) : user.role === 'SUPPLIER_VENDOR' ? (
+                    <span className="text-xs text-purple-600 font-medium">Supplier Rekanan</span>
+                  ) : (
+                    <span className="text-xs text-neutral-400 italic">Kantor Pusat (Semua Gudang)</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {user.partnerName ? (
@@ -398,14 +426,49 @@ export const UsersPage: React.FC<UsersPageProps> = ({
               />
               <Select
                 label="Peran / Role"
-                selectedKeys={[staffRole]}
-                onChange={(e) => setStaffRole(e.target.value as UserRole)}
+                selectedKeys={staffRole ? new Set([staffRole]) : new Set([])}
+                onSelectionChange={(keys) => {
+                  const val = Array.from(keys)[0] as UserRole;
+                  if (val) setStaffRole(val);
+                }}
                 isRequired
               >
-                <SelectItem key="KITCHEN_MANAGER">KITCHEN_MANAGER (Kepala Central Kitchen & Resep)</SelectItem>
-                <SelectItem key="WAREHOUSE_LOGISTICS">WAREHOUSE_LOGISTICS (Staf Gudang & Mutasi)</SelectItem>
-                <SelectItem key="PROCUREMENT_OFFICER">PROCUREMENT_OFFICER (Purchasing & PO)</SelectItem>
-                <SelectItem key="SUPERADMIN">SUPERADMIN (Akses Penuh)</SelectItem>
+                <SelectItem key="KITCHEN_MANAGER" textValue="KITCHEN_MANAGER (Kepala Central Kitchen & Resep)">
+                  KITCHEN_MANAGER (Kepala Central Kitchen & Resep)
+                </SelectItem>
+                <SelectItem key="WAREHOUSE_LOGISTICS" textValue="WAREHOUSE_LOGISTICS (Staf Gudang & Mutasi)">
+                  WAREHOUSE_LOGISTICS (Staf Gudang & Mutasi)
+                </SelectItem>
+                <SelectItem key="PROCUREMENT_OFFICER" textValue="PROCUREMENT_OFFICER (Purchasing & PO)">
+                  PROCUREMENT_OFFICER (Purchasing & PO)
+                </SelectItem>
+                <SelectItem key="SUPERADMIN" textValue="SUPERADMIN (Akses Penuh)">
+                  SUPERADMIN (Akses Penuh)
+                </SelectItem>
+              </Select>
+            </div>
+
+            <div>
+              <Select
+                label="Penugasan Kantor / Fasilitas Gudang"
+                placeholder="Pilih Fasilitas Penugasan"
+                selectedKeys={staffWarehouseId ? new Set([staffWarehouseId]) : new Set(['HQ'])}
+                onSelectionChange={(keys) => {
+                  const val = Array.from(keys)[0] as string;
+                  setStaffWarehouseId(val === 'HQ' ? '' : val);
+                }}
+              >
+                {[
+                  { id: 'HQ', label: '🏢 Kantor Pusat / Semua Fasilitas (HQ Supervisor)' },
+                  ...warehouses.map((w) => ({
+                    id: w.id,
+                    label: `📍 ${w.name} (${w.code})`,
+                  })),
+                ].map((opt) => (
+                  <SelectItem key={opt.id} textValue={opt.label}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
               </Select>
             </div>
 
