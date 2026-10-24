@@ -669,7 +669,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
                 isRequired
               >
                 {products.map((p) => (
-                  <SelectItem key={p.id}>
+                  <SelectItem key={p.id} textValue={`${p.name} (${p.code})`}>
                     {p.name} ({p.code})
                   </SelectItem>
                 ))}
@@ -738,7 +738,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
                           }}
                         >
                           {products.map((p) => (
-                            <SelectItem key={p.id}>
+                            <SelectItem key={p.id} textValue={p.name}>
                               {p.name}
                             </SelectItem>
                           ))}
@@ -826,7 +826,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
                 isRequired
               >
                 {recipes.map((r) => (
-                  <SelectItem key={r.id}>
+                  <SelectItem key={r.id} textValue={`${r.name} (${r.code})`}>
                     {r.name} ({r.code})
                   </SelectItem>
                 ))}
@@ -839,7 +839,7 @@ export const ProductionPage: React.FC<ProductionPageProps> = ({
                 isRequired
               >
                 {warehouses.map((w) => (
-                  <SelectItem key={w.id}>
+                  <SelectItem key={w.id} textValue={`${w.name} (${w.code})`}>
                     {w.name} ({w.code})
                   </SelectItem>
                 ))}

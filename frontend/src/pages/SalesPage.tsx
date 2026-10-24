@@ -6,7 +6,9 @@ import {
   CheckCircle2,
   Trash,
   Store,
-  Building
+  Building,
+  ChefHat,
+  BoxSelect,
 } from 'lucide-react';
 import {
   Table,
@@ -32,6 +34,7 @@ import {
 } from '@heroui/react';
 import { SalesOrder, Customer, Warehouse, Product, AuthUser } from '../types/erp';
 import { erpApi } from '../api/erpApi';
+import { isMitraCommissaryWarehouse, getProductStorageLocation } from '../utils/warehouseZones';
 
 interface SalesPageProps {
   salesOrders: SalesOrder[];
@@ -107,7 +110,8 @@ export const SalesPage: React.FC<SalesPageProps> = ({
       targetCustId = customers[0].id;
     }
     setSelectedCustomerId(targetCustId);
-    setSelectedWarehouseId(warehouses[0]?.id || '');
+    const commissaryWh = warehouses.find(isMitraCommissaryWarehouse) || warehouses.find((w) => w.code.includes('KITCHEN')) || warehouses[0];
+    setSelectedWarehouseId(isMitra ? (commissaryWh?.id || '') : (warehouses[0]?.id || ''));
     setNotes(isMitra ? `Pesanan restock cabang oleh: ${currentUser?.fullName || currentUser?.username}` : '');
     setCreatedBy(currentUser?.fullName || (isMitra ? 'PIC Mitra Outlet' : 'Branch Dispatch Rep'));
 
@@ -388,29 +392,57 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                 </Select>
               )}
 
-              <Select
-                label="Fulfillment Warehouse (Gudang Asal)"
-                size="sm"
-                placeholder="Pilih Gudang Asal"
-                selectedKeys={selectedWarehouseId ? new Set([selectedWarehouseId]) : new Set([])}
-                onSelectionChange={(keys) => {
-                  const val = Array.from(keys)[0] as string;
-                  if (val) setSelectedWarehouseId(val);
-                }}
-                isRequired
-              >
-                {warehouses.map((w) => (
-                  <SelectItem key={w.id} textValue={w.name}>
-                    {w.name} ({w.code})
-                  </SelectItem>
-                ))}
-              </Select>
+              {isMitra ? (
+                <div className="p-3 bg-neutral-100/90 dark:bg-neutral-800/90 rounded-xl border border-neutral-200 dark:border-neutral-700">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+                    Fulfillment Hub (Dapur Sentral)
+                  </span>
+                  <p className="text-sm font-bold text-neutral-900 dark:text-white mt-1 flex items-center gap-2">
+                    <ChefHat className="w-4 h-4 text-emerald-600" />
+                    <span>{warehouses.find((w) => w.id === selectedWarehouseId)?.name || 'Central Commissary Kitchen SCBD'}</span>
+                    <Chip size="sm" color="success" variant="flat" className="h-4 text-[10px] px-1 font-semibold ml-auto">
+                      Dapur Sentral
+                    </Chip>
+                  </p>
+                </div>
+              ) : (
+                <Select
+                  label="Fulfillment Warehouse (Gudang Asal)"
+                  size="sm"
+                  placeholder="Pilih Gudang Asal"
+                  selectedKeys={selectedWarehouseId ? new Set([selectedWarehouseId]) : new Set([])}
+                  onSelectionChange={(keys) => {
+                    const val = Array.from(keys)[0] as string;
+                    if (val) setSelectedWarehouseId(val);
+                  }}
+                  isRequired
+                >
+                  {warehouses.map((w) => {
+                    const isKitchen = isMitraCommissaryWarehouse(w);
+                    return (
+                      <SelectItem key={w.id} textValue={`${w.name} (${w.code})`}>
+                        {w.name} ({w.code}) {isKitchen ? '🍳 [Commissary Sentral]' : ''}
+                      </SelectItem>
+                    );
+                  })}
+                </Select>
+              )}
             </div>
+
+            {isMitra && (
+              <div className="p-3 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs flex items-center gap-2.5">
+                <ChefHat className="w-5 h-5 text-emerald-600 shrink-0" />
+                <span>
+                  <strong>Standar Dapur Mitra:</strong> Pesanan cabang Anda disiapkan langsung dari{' '}
+                  <strong>Central Commissary Kitchen (WH-KITCHEN-03)</strong> dalam bentuk bahan terstandarisasi siap masak (ready-to-cook pack), terjaga higienis dan konsisten.
+                </span>
+              </div>
+            )}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-                  Daftar Bahan / Produk Pesanan
+                  Daftar Bahan / Produk Pesanan & Lokasi Dispatch
                 </h4>
                 <Button
                   size="sm"
@@ -425,80 +457,98 @@ export const SalesPage: React.FC<SalesPageProps> = ({
               </div>
 
               <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                {items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-12 gap-2.5 items-center p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/80"
-                  >
-                    <div className="col-span-5">
-                      <Select
-                        size="sm"
-                        label="Produk / Bahan Baku"
-                        placeholder="Pilih Bahan Baku..."
-                        selectedKeys={item.productId ? new Set([item.productId]) : new Set([])}
-                        onSelectionChange={(keys) => {
-                          const val = Array.from(keys)[0] as string;
-                          if (val) handleItemChange(idx, 'productId', val);
-                        }}
-                        aria-label={`Produk item ${idx + 1}`}
-                      >
-                        {products.map((p) => (
-                          <SelectItem
-                            key={p.id}
-                            textValue={`${p.name} (${p.unit})`}
+                {items.map((item, idx) => {
+                  const prod = products.find((p) => p.id === item.productId);
+                  const selectedWh = warehouses.find((w) => w.id === selectedWarehouseId);
+                  const loc = getProductStorageLocation(prod?.code, prod?.categoryName, selectedWh?.code || 'WH-KITCHEN-03');
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/80 space-y-2"
+                    >
+                      <div className="grid grid-cols-12 gap-2.5 items-center">
+                        <div className="col-span-5">
+                          <Select
+                            size="sm"
+                            label="Produk / Bahan Baku"
+                            placeholder="Pilih Bahan Baku..."
+                            selectedKeys={item.productId ? new Set([item.productId]) : new Set([])}
+                            onSelectionChange={(keys) => {
+                              const val = Array.from(keys)[0] as string;
+                              if (val) handleItemChange(idx, 'productId', val);
+                            }}
+                            aria-label={`Produk item ${idx + 1}`}
                           >
-                            <div className="flex items-center justify-between gap-2 w-full">
-                              <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100">
-                                {p.name}
-                              </span>
-                              <span className="text-[11px] text-neutral-400 font-mono">
-                                {formatIDR(p.sellingPrice)} / {p.unit}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </Select>
-                    </div>
+                            {products.map((p) => (
+                              <SelectItem
+                                key={p.id}
+                                textValue={`${p.name} (${p.unit})`}
+                              >
+                                <div className="flex items-center justify-between gap-2 w-full">
+                                  <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100">
+                                    {p.name}
+                                  </span>
+                                  <span className="text-[11px] text-neutral-400 font-mono">
+                                    {formatIDR(p.sellingPrice)} / {p.unit}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </Select>
+                        </div>
 
-                    <div className="col-span-2">
-                      <Input
-                        type="number"
-                        size="sm"
-                        label="Kuantitas"
-                        min="1"
-                        value={item.quantity.toString()}
-                        onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                      />
-                    </div>
+                        <div className="col-span-2">
+                          <Input
+                            type="number"
+                            size="sm"
+                            label="Kuantitas"
+                            min="1"
+                            value={item.quantity.toString()}
+                            onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
+                          />
+                        </div>
 
-                    <div className="col-span-3">
-                      <Input
-                        type="number"
-                        size="sm"
-                        label="Harga Satuan (IDR)"
-                        value={item.unitPrice.toString()}
-                        isReadOnly={isMitra}
-                        onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
-                      />
-                    </div>
+                        <div className="col-span-3">
+                          <Input
+                            type="number"
+                            size="sm"
+                            label="Harga Satuan (IDR)"
+                            value={item.unitPrice.toString()}
+                            isReadOnly={isMitra}
+                            onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
+                          />
+                        </div>
 
-                    <div className="col-span-1 text-right text-xs font-bold text-neutral-900 dark:text-neutral-100">
-                      {formatIDR(item.quantity * item.unitPrice)}
-                    </div>
+                        <div className="col-span-1 text-right text-xs font-bold text-neutral-900 dark:text-neutral-100">
+                          {formatIDR(item.quantity * item.unitPrice)}
+                        </div>
 
-                    <div className="col-span-1 text-right">
-                      <Button
-                        isIconOnly
-                        size="sm"
-                        variant="light"
-                        onClick={() => handleRemoveItem(idx)}
-                        className="text-neutral-400 hover:text-rose-600"
-                      >
-                        <Trash className="w-3.5 h-3.5" />
-                      </Button>
+                        <div className="col-span-1 text-right">
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            variant="light"
+                            onClick={() => handleRemoveItem(idx)}
+                            className="text-neutral-400 hover:text-rose-600"
+                          >
+                            <Trash className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] px-2.5 py-1 rounded-lg bg-neutral-100/70 dark:bg-neutral-800/80 border border-neutral-200/60 dark:border-neutral-700/60">
+                        <span className="text-neutral-500 flex items-center gap-1 font-medium">
+                          <BoxSelect className="w-3 h-3 text-emerald-600" />
+                          Alokasi Kotak & Rak Pengambilan:
+                        </span>
+                        <span className="font-mono font-bold text-neutral-800 dark:text-neutral-200">
+                          {loc.rack} &bull; {loc.bin} <span className="text-[10px] text-neutral-400 font-normal">({loc.zone})</span>
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="flex justify-between items-center pt-3 border-t border-neutral-200 dark:border-neutral-800 text-sm">

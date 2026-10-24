@@ -5,7 +5,10 @@ import {
   AlertTriangle,
   Search,
   ArrowDownToLine,
-  SlidersHorizontal
+  SlidersHorizontal,
+  MapPin,
+  BoxSelect,
+  Thermometer,
 } from 'lucide-react';
 import {
   Table,
@@ -37,6 +40,7 @@ import {
   Product,
 } from '../types/erp';
 import { erpApi } from '../api/erpApi';
+import { getProductStorageLocation, WAREHOUSE_PROFILES } from '../utils/warehouseZones';
 
 interface InventoryPageProps {
   stocks: InventoryStock[];
@@ -297,73 +301,95 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
           <Table aria-label="Live Stock Table" shadow="none">
             <TableHeader>
               <TableColumn>PRODUCT</TableColumn>
-              <TableColumn>WAREHOUSE</TableColumn>
+              <TableColumn>GUDANG PENYIMPANAN</TableColumn>
+              <TableColumn>LOKASI RAK & KOTAK / BIN</TableColumn>
               <TableColumn>ON HAND QTY</TableColumn>
               <TableColumn>SAFETY MIN</TableColumn>
               <TableColumn>STATUS</TableColumn>
               <TableColumn className="text-right">ACTIONS</TableColumn>
             </TableHeader>
             <TableBody emptyContent="No inventory records found.">
-              {filteredStocks.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell>
-                    <div>
-                      <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100 block">
-                        {s.productName}
+              {filteredStocks.map((s) => {
+                const loc = getProductStorageLocation(s.productCode, s.categoryName, s.warehouseCode);
+                return (
+                  <TableRow key={s.id}>
+                    <TableCell>
+                      <div>
+                        <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100 block">
+                          {s.productName}
+                        </span>
+                        <span className="text-[10px] text-neutral-400 font-mono">
+                          {s.productCode} • {s.categoryName}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-0.5">
+                        <span className="text-xs text-neutral-800 dark:text-neutral-200 font-bold block">
+                          {s.warehouseName}
+                        </span>
+                        <span className="font-mono text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
+                          {s.warehouseCode}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/60 border border-blue-200/60 dark:border-blue-900/60 text-blue-700 dark:text-blue-300">
+                          <BoxSelect className="w-3 h-3 text-blue-500 shrink-0" />
+                          <span className="font-mono text-[11px] font-bold">
+                            {loc.rack} • {loc.bin}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-neutral-500 dark:text-neutral-400 block font-medium">
+                          {loc.zone}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`text-sm font-extrabold ${s.isLowStock ? 'text-rose-600 dark:text-rose-400' : 'text-neutral-900 dark:text-white'}`}>
+                        {s.quantity} {s.unit}
                       </span>
-                      <span className="text-[10px] text-neutral-400 font-mono">
-                        {s.productCode} • {s.categoryName}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-xs text-neutral-700 dark:text-neutral-300 font-medium">
-                      {s.warehouseName}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <span className={`text-sm font-extrabold ${s.isLowStock ? 'text-rose-600 dark:text-rose-400' : 'text-neutral-900 dark:text-white'}`}>
-                      {s.quantity} {s.unit}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-xs text-neutral-500">
-                    {s.minStock} {s.unit}
-                  </TableCell>
-                  <TableCell>
-                    {s.isLowStock ? (
-                      <Chip
+                    </TableCell>
+                    <TableCell className="text-xs text-neutral-500">
+                      {s.minStock} {s.unit}
+                    </TableCell>
+                    <TableCell>
+                      {s.isLowStock ? (
+                        <Chip
+                          size="sm"
+                          variant="flat"
+                          color="danger"
+                          startContent={<AlertTriangle className="w-3 h-3" />}
+                          className="text-[10px] h-5 font-bold"
+                        >
+                          LOW STOCK
+                        </Chip>
+                      ) : (
+                        <Chip
+                          size="sm"
+                          variant="flat"
+                          color="success"
+                          className="text-[10px] h-5 font-semibold"
+                        >
+                          ADEQUATE
+                        </Chip>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
                         size="sm"
-                        variant="flat"
-                        color="danger"
-                        startContent={<AlertTriangle className="w-3 h-3" />}
-                        className="text-[10px] h-5 font-bold"
+                        variant="light"
+                        onClick={() => handleOpenAdjustModal(s)}
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                        startContent={<SlidersHorizontal className="w-3 h-3" />}
                       >
-                        LOW STOCK
-                      </Chip>
-                    ) : (
-                      <Chip
-                        size="sm"
-                        variant="flat"
-                        color="success"
-                        className="text-[10px] h-5 font-semibold"
-                      >
-                        ADEQUATE
-                      </Chip>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="light"
-                      onClick={() => handleOpenAdjustModal(s)}
-                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                      startContent={<SlidersHorizontal className="w-3 h-3" />}
-                    >
-                      Adjust
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                        Adjust
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -429,20 +455,28 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
               <Select
                 label="Destination Warehouse"
                 size="sm"
-                selectedKeys={receiveWhId ? [receiveWhId] : []}
-                onChange={(e) => setReceiveWhId(e.target.value)}
-                required
+                selectedKeys={receiveWhId ? new Set([receiveWhId]) : new Set([])}
+                onSelectionChange={(keys) => {
+                  const val = Array.from(keys)[0] as string;
+                  if (val) setReceiveWhId(val);
+                }}
+                isRequired
               >
                 {warehouses.map((w) => (
-                  <SelectItem key={w.id}>{w.name}</SelectItem>
+                  <SelectItem key={w.id} textValue={`${w.name} (${w.code})`}>
+                    {w.name} ({w.code})
+                  </SelectItem>
                 ))}
               </Select>
 
               <Select
                 label="Link to Purchase Order (Optional)"
                 size="sm"
-                selectedKeys={receivePoId ? [receivePoId] : []}
-                onChange={(e) => handlePoSelect(e.target.value)}
+                selectedKeys={receivePoId ? new Set([receivePoId]) : new Set([])}
+                onSelectionChange={(keys) => {
+                  const val = Array.from(keys)[0] as string;
+                  handlePoSelect(val || '');
+                }}
               >
                 {[
                   { id: '', label: 'Direct Inbound (No PO)' },
@@ -453,53 +487,80 @@ export const InventoryPage: React.FC<InventoryPageProps> = ({
                       label: `${p.orderNumber} - ${p.supplierName}`,
                     })),
                 ].map((opt) => (
-                  <SelectItem key={opt.id}>{opt.label}</SelectItem>
+                  <SelectItem key={opt.id} textValue={opt.label}>{opt.label}</SelectItem>
                 ))}
               </Select>
             </div>
 
             <div className="space-y-2">
-              <h4 className="text-xs font-bold uppercase text-neutral-500">Items Received</h4>
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                {receiveItems.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-12 gap-2 items-center p-2 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-100 dark:border-neutral-800"
-                  >
-                    <div className="col-span-6">
-                      <Select
-                        size="sm"
-                        label="Product"
-                        selectedKeys={[item.productId]}
-                        onChange={(e) => handleReceiveItemChange(idx, 'productId', e.target.value)}
-                      >
-                        {products.map((p) => (
-                          <SelectItem key={p.id}>
-                            {p.name} ({p.unit})
-                          </SelectItem>
-                        ))}
-                      </Select>
+              <h4 className="text-xs font-bold uppercase text-neutral-500">
+                Barang yang Diterima & Alokasi Kotak/Rak Penyimpanan
+              </h4>
+              <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                {receiveItems.map((item, idx) => {
+                  const prod = products.find((p) => p.id === item.productId);
+                  const selectedWh = warehouses.find((w) => w.id === receiveWhId);
+                  const loc = getProductStorageLocation(prod?.code, prod?.categoryName, selectedWh?.code);
+
+                  return (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-100 dark:border-neutral-800 space-y-2"
+                    >
+                      <div className="grid grid-cols-12 gap-2 items-center">
+                        <div className="col-span-6">
+                          <Select
+                            size="sm"
+                            label="Product"
+                            selectedKeys={item.productId ? new Set([item.productId]) : new Set([])}
+                            onSelectionChange={(keys) => {
+                              const val = Array.from(keys)[0] as string;
+                              if (val) handleReceiveItemChange(idx, 'productId', val);
+                            }}
+                          >
+                            {products.map((p) => (
+                              <SelectItem key={p.id} textValue={`${p.name} (${p.unit})`}>
+                                {p.name} ({p.unit})
+                              </SelectItem>
+                            ))}
+                          </Select>
+                        </div>
+                        <div className="col-span-3">
+                          <Input
+                            type="number"
+                            size="sm"
+                            label="Received Qty"
+                            value={item.quantity.toString()}
+                            onChange={(e) => handleReceiveItemChange(idx, 'quantity', e.target.value)}
+                          />
+                        </div>
+                        <div className="col-span-3">
+                          <Input
+                            type="number"
+                            size="sm"
+                            label="Unit Cost"
+                            value={item.unitCost.toString()}
+                            onChange={(e) => handleReceiveItemChange(idx, 'unitCost', e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Storage Kotak & Rak Placement Instruction */}
+                      <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg bg-blue-50/70 dark:bg-blue-950/40 border border-blue-200/50 dark:border-blue-900/40">
+                        <span className="text-neutral-500 flex items-center gap-1 font-medium">
+                          <BoxSelect className="w-3 h-3 text-blue-600" />
+                          Instruksi Taruh Rak & Kotak:
+                        </span>
+                        <div className="flex items-center gap-1.5 font-mono">
+                          <span className="font-bold text-blue-700 dark:text-blue-300">
+                            {loc.rack} • {loc.bin}
+                          </span>
+                          <span className="text-[10px] text-neutral-400">({loc.temp})</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="col-span-3">
-                      <Input
-                        type="number"
-                        size="sm"
-                        label="Received Qty"
-                        value={item.quantity.toString()}
-                        onChange={(e) => handleReceiveItemChange(idx, 'quantity', e.target.value)}
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <Input
-                        type="number"
-                        size="sm"
-                        label="Unit Cost"
-                        value={item.unitCost.toString()}
-                        onChange={(e) => handleReceiveItemChange(idx, 'unitCost', e.target.value)}
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 

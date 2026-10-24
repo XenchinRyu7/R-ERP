@@ -3,7 +3,12 @@ import {
   Plus,
   Eye,
   Truck,
-  Trash
+  Trash,
+  BoxSelect,
+  ThermometerSnowflake,
+  Layers,
+  MapPin,
+  Boxes,
 } from 'lucide-react';
 import {
   Table,
@@ -29,6 +34,11 @@ import {
 } from '@heroui/react';
 import { PurchaseOrder, Supplier, Product, Warehouse } from '../types/erp';
 import { erpApi } from '../api/erpApi';
+import {
+  getProductStorageLocation,
+  getRecommendedWarehouseForSupplierOrder,
+  WAREHOUSE_PROFILES,
+} from '../utils/warehouseZones';
 
 interface ProcurementPageProps {
   purchaseOrders: PurchaseOrder[];
@@ -43,7 +53,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
   purchaseOrders,
   suppliers,
   products,
-  warehouses: _warehouses,
+  warehouses,
   onRefresh,
   onOpenReceive,
 }) => {
@@ -69,26 +79,37 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
 
   // Create PO form state
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [createdBy, setCreatedBy] = useState('Procurement Manager');
   const [items, setItems] = useState<
     Array<{ productId: string; quantity: number; unitPrice: number }>
   >([]);
 
+  // Filter warehouses for supplier inbound: Central Cold Storage or Central Dry Hub
+  const supplierInboundWarehouses = warehouses.filter(
+    (w) => w.code.includes('COLD') || w.code.includes('DRY')
+  );
+  const availableWhs = supplierInboundWarehouses.length > 0 ? supplierInboundWarehouses : warehouses;
+
   const handleOpenCreateModal = () => {
     setSelectedSupplierId(suppliers[0]?.id || '');
     setNotes('');
     setCreatedBy('Procurement Officer');
     if (products.length > 0) {
-      setItems([
+      const initialItems = [
         {
           productId: products[0].id,
           quantity: 10,
           unitPrice: Number(products[0].purchasePrice) || 0,
         },
-      ]);
+      ];
+      setItems(initialItems);
+      const rec = getRecommendedWarehouseForSupplierOrder([products[0]], availableWhs);
+      setSelectedWarehouseId(rec.warehouseId);
     } else {
       setItems([]);
+      setSelectedWarehouseId(availableWhs[0]?.id || '');
     }
     onOpenCreate();
   };
@@ -117,6 +138,13 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
       if (prod) {
         updated[index].unitPrice = Number(prod.purchasePrice) || 0;
       }
+      const prodsInOrder = updated
+        .map((i) => products.find((p) => p.id === i.productId))
+        .filter(Boolean) as Product[];
+      const rec = getRecommendedWarehouseForSupplierOrder(prodsInOrder, availableWhs);
+      if (rec.warehouseId) {
+        setSelectedWarehouseId(rec.warehouseId);
+      }
     } else if (field === 'quantity') {
       updated[index].quantity = Number(val);
     } else if (field === 'unitPrice') {
@@ -140,11 +168,17 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
       return;
     }
 
+    const targetWh = warehouses.find((w) => w.id === selectedWarehouseId);
+    const deliveryGuidance = targetWh
+      ? `Inbound Tujuan: ${targetWh.name} (${targetWh.code})`
+      : 'Inbound Warehouse';
+    const finalNotes = notes ? `${notes} | ${deliveryGuidance}` : deliveryGuidance;
+
     setIsSubmitting(true);
     try {
       await erpApi.createPurchaseOrder({
         supplierId: selectedSupplierId,
-        notes,
+        notes: finalNotes,
         createdBy,
         items,
       });
@@ -336,18 +370,52 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                 ))}
               </Select>
 
-              <Input
-                label="Created By"
+              <Select
+                label="Gudang Tujuan Penerimaan (Supplier Inbound Hub)"
                 size="sm"
-                value={createdBy}
-                onChange={(e) => setCreatedBy(e.target.value)}
-              />
+                placeholder="Pilih Gudang Penerimaan"
+                selectedKeys={selectedWarehouseId ? new Set([selectedWarehouseId]) : new Set([])}
+                onSelectionChange={(keys) => {
+                  const val = Array.from(keys)[0] as string;
+                  if (val) setSelectedWarehouseId(val);
+                }}
+                isRequired
+              >
+                {availableWhs.map((w) => {
+                  const isCold = w.code.includes('COLD');
+                  return (
+                    <SelectItem key={w.id} textValue={`${w.name} (${w.code})`}>
+                      {w.name} ({w.code}) {isCold ? '❄️ [-18°C]' : '📦 [Dry]'}
+                    </SelectItem>
+                  );
+                })}
+              </Select>
             </div>
+
+            {selectedWarehouseId && (() => {
+              const targetWh = warehouses.find((w) => w.id === selectedWarehouseId);
+              const isCold = targetWh?.code.includes('COLD');
+              return (
+                <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
+                  isCold
+                    ? 'bg-blue-50/70 dark:bg-blue-950/40 border-blue-200/60 dark:border-blue-900/60 text-blue-800 dark:text-blue-300'
+                    : 'bg-amber-50/70 dark:bg-amber-950/40 border-amber-200/60 dark:border-amber-900/60 text-amber-800 dark:text-amber-300'
+                }`}>
+                  <span className="flex items-center gap-1.5 font-medium">
+                    {isCold ? <ThermometerSnowflake className="w-4 h-4 text-blue-600 shrink-0" /> : <Boxes className="w-4 h-4 text-amber-600 shrink-0" />}
+                    <span>
+                      <strong>Inbound Hub:</strong> {targetWh?.name} ({targetWh?.code}) &bull;{' '}
+                      {isCold ? 'Khusus Bahan Dingin/Beku (Suhu -18°C ~ 4°C)' : 'Khusus Bahan Kering/Packaging (Ambient)'}
+                    </span>
+                  </span>
+                </div>
+              );
+            })()}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-neutral-700 dark:text-neutral-300 uppercase tracking-wider">
-                  Order Line Items
+                  Order Line Items & Alokasi Kotak/Rak
                 </h4>
                 <Button
                   size="sm"
@@ -361,69 +429,87 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                 </Button>
               </div>
 
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-12 gap-2 items-center p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-100 dark:border-neutral-800"
-                  >
-                    <div className="col-span-5">
-                      <Select
-                        size="sm"
-                        label="Product"
-                        placeholder="Pilih Produk..."
-                        selectedKeys={item.productId ? new Set([item.productId]) : new Set([])}
-                        onSelectionChange={(keys) => {
-                          const val = Array.from(keys)[0] as string;
-                          if (val) handleItemChange(idx, 'productId', val);
-                        }}
-                        aria-label={`PO Product item ${idx + 1}`}
-                      >
-                        {products.map((p) => (
-                          <SelectItem key={p.id} textValue={`${p.name} (${p.unit})`}>
-                            {p.name} ({p.unit})
-                          </SelectItem>
-                        ))}
-                      </Select>
-                    </div>
+              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                {items.map((item, idx) => {
+                  const prod = products.find((p) => p.id === item.productId);
+                  const selectedWh = warehouses.find((w) => w.id === selectedWarehouseId);
+                  const loc = getProductStorageLocation(prod?.code, prod?.categoryName, selectedWh?.code);
 
-                    <div className="col-span-2">
-                      <Input
-                        type="number"
-                        size="sm"
-                        label="Qty"
-                        value={item.quantity.toString()}
-                        onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
-                      />
-                    </div>
+                  return (
+                    <div
+                      key={idx}
+                      className="p-2.5 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-100 dark:border-neutral-800 space-y-1.5"
+                    >
+                      <div className="grid grid-cols-12 gap-2 items-center">
+                        <div className="col-span-5">
+                          <Select
+                            size="sm"
+                            label="Product"
+                            placeholder="Pilih Produk..."
+                            selectedKeys={item.productId ? new Set([item.productId]) : new Set([])}
+                            onSelectionChange={(keys) => {
+                              const val = Array.from(keys)[0] as string;
+                              if (val) handleItemChange(idx, 'productId', val);
+                            }}
+                            aria-label={`PO Product item ${idx + 1}`}
+                          >
+                            {products.map((p) => (
+                              <SelectItem key={p.id} textValue={`${p.name} (${p.unit})`}>
+                                {p.name} ({p.unit})
+                              </SelectItem>
+                            ))}
+                          </Select>
+                        </div>
 
-                    <div className="col-span-3">
-                      <Input
-                        type="number"
-                        size="sm"
-                        label="Unit Price (IDR)"
-                        value={item.unitPrice.toString()}
-                        onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
-                      />
-                    </div>
+                        <div className="col-span-2">
+                          <Input
+                            type="number"
+                            size="sm"
+                            label="Qty"
+                            value={item.quantity.toString()}
+                            onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
+                          />
+                        </div>
 
-                    <div className="col-span-1 text-right text-xs font-bold text-neutral-800 dark:text-neutral-200">
-                      {formatIDR(item.quantity * item.unitPrice)}
-                    </div>
+                        <div className="col-span-3">
+                          <Input
+                            type="number"
+                            size="sm"
+                            label="Unit Price (IDR)"
+                            value={item.unitPrice.toString()}
+                            onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
+                          />
+                        </div>
 
-                    <div className="col-span-1 text-right">
-                      <Button
-                        isIconOnly
-                        size="sm"
-                        variant="light"
-                        onClick={() => handleRemoveItem(idx)}
-                        className="text-neutral-400 hover:text-rose-600"
-                      >
-                        <Trash className="w-3.5 h-3.5" />
-                      </Button>
+                        <div className="col-span-1 text-right text-xs font-bold text-neutral-800 dark:text-neutral-200">
+                          {formatIDR(item.quantity * item.unitPrice)}
+                        </div>
+
+                        <div className="col-span-1 text-right">
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            variant="light"
+                            onClick={() => handleRemoveItem(idx)}
+                            className="text-neutral-400 hover:text-rose-600"
+                          >
+                            <Trash className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] px-2 py-1 rounded-lg bg-blue-50/50 dark:bg-blue-950/30 border border-blue-200/40 dark:border-blue-900/30">
+                        <span className="text-neutral-500 flex items-center gap-1 font-medium">
+                          <BoxSelect className="w-3 h-3 text-blue-600" />
+                          Alokasi Kotak & Rak:
+                        </span>
+                        <span className="font-mono font-bold text-blue-700 dark:text-blue-300">
+                          {loc.rack} &bull; {loc.bin} <span className="text-[10px] text-neutral-400 font-normal">({loc.zone})</span>
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="flex justify-between items-center pt-3 border-t border-neutral-200 dark:border-neutral-800 text-sm">
@@ -496,6 +582,7 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                       <thead className="bg-neutral-100 dark:bg-neutral-800 text-neutral-500">
                         <tr>
                           <th className="p-2.5">Product</th>
+                          <th className="p-2.5">Alokasi Kotak & Rak</th>
                           <th className="p-2.5">Ordered</th>
                           <th className="p-2.5">Received</th>
                           <th className="p-2.5">Unit Price</th>
@@ -503,20 +590,29 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
-                        {viewingPo.items?.map((item) => (
-                          <tr key={item.id}>
-                            <td className="p-2.5 font-semibold text-neutral-900 dark:text-neutral-100">
-                              {item.productName}
-                              <span className="block text-[10px] text-neutral-400">{item.productCode}</span>
-                            </td>
-                            <td className="p-2.5">{item.quantity} {item.unit}</td>
-                            <td className="p-2.5 font-bold text-blue-600 dark:text-blue-400">
-                              {item.receivedQuantity ?? 0} {item.unit}
-                            </td>
-                            <td className="p-2.5">{formatIDR(item.unitPrice)}</td>
-                            <td className="p-2.5 text-right font-bold">{formatIDR(item.subtotal || 0)}</td>
-                          </tr>
-                        ))}
+                        {viewingPo.items?.map((item) => {
+                          const loc = getProductStorageLocation(item.productCode);
+                          return (
+                            <tr key={item.id}>
+                              <td className="p-2.5 font-semibold text-neutral-900 dark:text-neutral-100">
+                                {item.productName}
+                                <span className="block text-[10px] text-neutral-400">{item.productCode}</span>
+                              </td>
+                              <td className="p-2.5">
+                                <span className="font-mono text-[11px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50 px-1.5 py-0.5 rounded">
+                                  {loc.rack} &bull; {loc.bin}
+                                </span>
+                                <span className="block text-[10px] text-neutral-400">{loc.zone}</span>
+                              </td>
+                              <td className="p-2.5">{item.quantity} {item.unit}</td>
+                              <td className="p-2.5 font-bold text-blue-600 dark:text-blue-400">
+                                {item.receivedQuantity ?? 0} {item.unit}
+                              </td>
+                              <td className="p-2.5">{formatIDR(item.unitPrice)}</td>
+                              <td className="p-2.5 text-right font-bold">{formatIDR(item.subtotal || 0)}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
