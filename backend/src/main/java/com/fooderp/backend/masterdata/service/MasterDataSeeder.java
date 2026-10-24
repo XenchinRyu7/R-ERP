@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
+import com.fooderp.backend.auth.repository.AppUserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -37,6 +39,8 @@ public class MasterDataSeeder implements CommandLineRunner {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final GoodsReceiptRepository goodsReceiptRepository;
     private final SalesOrderRepository salesOrderRepository;
+    private final AppUserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public MasterDataSeeder(
             ProductCategoryRepository categoryRepository,
@@ -48,7 +52,9 @@ public class MasterDataSeeder implements CommandLineRunner {
             InventoryTransactionRepository transactionRepository,
             PurchaseOrderRepository purchaseOrderRepository,
             GoodsReceiptRepository goodsReceiptRepository,
-            SalesOrderRepository salesOrderRepository) {
+            SalesOrderRepository salesOrderRepository,
+            AppUserRepository userRepository,
+            PasswordEncoder passwordEncoder) {
         this.categoryRepository = categoryRepository;
         this.productRepository = productRepository;
         this.supplierRepository = supplierRepository;
@@ -59,10 +65,14 @@ public class MasterDataSeeder implements CommandLineRunner {
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.goodsReceiptRepository = goodsReceiptRepository;
         this.salesOrderRepository = salesOrderRepository;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
     public void run(String... args) {
+        seedUsersIfEmpty();
+
         if (categoryRepository.count() > 0) {
             log.info("Master data already exists, skipping initial seed.");
             return;
@@ -150,5 +160,124 @@ public class MasterDataSeeder implements CommandLineRunner {
         salesOrderRepository.save(so1);
 
         log.info("Food ERP comprehensive data seeded successfully!");
+    }
+
+    private void seedUsersIfEmpty() {
+        if (userRepository.count() > 0) {
+            return;
+        }
+
+        log.info("Seeding default ERP staff & partner accounts for all 6 roles...");
+
+        Customer sampleCustomer = customerRepository.findAll().stream().findFirst().orElse(null);
+        Supplier sampleSupplier = supplierRepository.findAll().stream().findFirst().orElse(null);
+
+        // 1. Superadmin
+        com.fooderp.backend.auth.entity.AppUser admin = new com.fooderp.backend.auth.entity.AppUser(
+                UUID.randomUUID(),
+                "admin",
+                "admin@fooderp.com",
+                passwordEncoder.encode("admin123"),
+                "Chief Executive Administrator",
+                com.fooderp.backend.auth.entity.UserRole.SUPERADMIN,
+                "+62 811-0000-001",
+                com.fooderp.backend.auth.entity.UserStatus.ACTIVE,
+                null,
+                null
+        );
+
+        // 2. Kitchen Manager
+        com.fooderp.backend.auth.entity.AppUser chef = new com.fooderp.backend.auth.entity.AppUser(
+                UUID.randomUUID(),
+                "chef.juna",
+                "chef@fooderp.com",
+                passwordEncoder.encode("kitchen123"),
+                "Executive Chef Juna",
+                com.fooderp.backend.auth.entity.UserRole.KITCHEN_MANAGER,
+                "+62 811-0000-002",
+                com.fooderp.backend.auth.entity.UserStatus.ACTIVE,
+                null,
+                null
+        );
+
+        // 3. Warehouse & Logistics Officer
+        com.fooderp.backend.auth.entity.AppUser warehouse = new com.fooderp.backend.auth.entity.AppUser(
+                UUID.randomUUID(),
+                "warehouse.budi",
+                "warehouse@fooderp.com",
+                passwordEncoder.encode("warehouse123"),
+                "Logistics Supervisor Budi",
+                com.fooderp.backend.auth.entity.UserRole.WAREHOUSE_LOGISTICS,
+                "+62 811-0000-003",
+                com.fooderp.backend.auth.entity.UserStatus.ACTIVE,
+                null,
+                null
+        );
+
+        // 4. Procurement Officer
+        com.fooderp.backend.auth.entity.AppUser procure = new com.fooderp.backend.auth.entity.AppUser(
+                UUID.randomUUID(),
+                "procure.siti",
+                "procurement@fooderp.com",
+                passwordEncoder.encode("procure123"),
+                "Procurement Lead Siti",
+                com.fooderp.backend.auth.entity.UserRole.PROCUREMENT_OFFICER,
+                "+62 811-0000-004",
+                com.fooderp.backend.auth.entity.UserStatus.ACTIVE,
+                null,
+                null
+        );
+
+        // 5. Active Mitra Outlet (Resto Branch)
+        com.fooderp.backend.auth.entity.AppUser mitraActive = new com.fooderp.backend.auth.entity.AppUser(
+                UUID.randomUUID(),
+                "mitra.senopati",
+                "mitra.senopati@resto.com",
+                passwordEncoder.encode("mitra123"),
+                "Manager Outlet Senopati",
+                com.fooderp.backend.auth.entity.UserRole.MITRA_OUTLET,
+                "+62 812-3333-001",
+                com.fooderp.backend.auth.entity.UserStatus.ACTIVE,
+                "OUTLET",
+                "Tokyo Dining Senopati Outlet"
+        );
+        mitraActive.setCustomer(sampleCustomer);
+        mitraActive.setApprovedBy("System Auto-Seed");
+        mitraActive.setApprovedAt(LocalDateTime.now().minusDays(5));
+
+        // 6. Active Supplier Vendor Partner
+        com.fooderp.backend.auth.entity.AppUser vendorActive = new com.fooderp.backend.auth.entity.AppUser(
+                UUID.randomUUID(),
+                "vendor.boga",
+                "vendor.boga@supplier.com",
+                passwordEncoder.encode("vendor123"),
+                "Sales Lead Boga Prima",
+                com.fooderp.backend.auth.entity.UserRole.SUPPLIER_VENDOR,
+                "+62 813-4444-002",
+                com.fooderp.backend.auth.entity.UserStatus.ACTIVE,
+                "VENDOR",
+                "PT Boga Prima Nusantara"
+        );
+        vendorActive.setSupplier(sampleSupplier);
+        vendorActive.setApprovedBy("System Auto-Seed");
+        vendorActive.setApprovedAt(LocalDateTime.now().minusDays(5));
+
+        // 7. Pending Mitra Registration (waiting for Superadmin approval)
+        com.fooderp.backend.auth.entity.AppUser mitraPending = new com.fooderp.backend.auth.entity.AppUser(
+                UUID.randomUUID(),
+                "mitra.menteng",
+                "mitra.menteng@resto.com",
+                passwordEncoder.encode("mitra123"),
+                "Owner Franchise Menteng",
+                com.fooderp.backend.auth.entity.UserRole.MITRA_OUTLET,
+                "+62 819-9999-003",
+                com.fooderp.backend.auth.entity.UserStatus.PENDING_APPROVAL,
+                "OUTLET",
+                "Menteng Gourmet Bistro Franchise"
+        );
+        mitraPending.setApprovalNotes("Newly applied franchise outlet in Menteng, awaits MOA verification");
+
+        userRepository.saveAll(List.of(admin, chef, warehouse, procure, mitraActive, vendorActive, mitraPending));
+        log.info("Default ERP staff and partner accounts seeded successfully!");
     }
 }
