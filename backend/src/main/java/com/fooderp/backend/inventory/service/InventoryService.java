@@ -175,6 +175,36 @@ public class InventoryService {
         stockRepository.save(stock);
     }
 
+    public void recordStockMovement(Product product, Warehouse warehouse, BigDecimal quantity, String transactionType, String refNumber, String notes) {
+        Optional<InventoryStock> existing = stockRepository.findByProductIdAndWarehouseId(product.getId(), warehouse.getId());
+        InventoryStock stock;
+        if (existing.isPresent()) {
+            stock = existing.get();
+            BigDecimal newQty = stock.getQuantity().add(quantity);
+            if (newQty.compareTo(BigDecimal.ZERO) < 0) {
+                throw new RuntimeException("Insufficient stock for product " + product.getName() + ". Available: " + stock.getQuantity() + ", requested: " + quantity.abs());
+            }
+            stock.setQuantity(newQty);
+        } else {
+            if (quantity.compareTo(BigDecimal.ZERO) < 0) {
+                throw new RuntimeException("Insufficient stock for product " + product.getName() + ". Available: 0, requested: " + quantity.abs());
+            }
+            stock = new InventoryStock(UUID.randomUUID(), product, warehouse, quantity);
+        }
+        stockRepository.save(stock);
+
+        InventoryTransaction tx = new InventoryTransaction(
+                UUID.randomUUID(),
+                product,
+                warehouse,
+                transactionType,
+                quantity,
+                refNumber,
+                notes
+        );
+        transactionRepository.save(tx);
+    }
+
     public void deductStock(UUID productId, UUID warehouseId, BigDecimal quantity, String refNumber, String notes) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + productId));
