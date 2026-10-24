@@ -10,7 +10,8 @@ import {
   Truck,
   History,
   Store,
-  ChevronRight
+  ChevronRight,
+  ChefHat
 } from 'lucide-react';
 import { Chip } from '@heroui/react';
 
@@ -22,6 +23,7 @@ export type ActivePage =
   | 'warehouses' 
   | 'procurement' 
   | 'inventory' 
+  | 'production'
   | 'sales' 
   | 'transactions';
 
@@ -71,6 +73,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badge: lowStockCount > 0 ? `${lowStockCount} alert` : undefined,
           badgeColor: 'danger' as const,
         },
+        { id: 'production' as ActivePage, label: 'Central Kitchen (BOM)', icon: ChefHat },
         { id: 'sales' as ActivePage, label: 'Branch Orders (SO)', icon: Store },
         { id: 'transactions' as ActivePage, label: 'Stock Movement Log', icon: History },
       ],

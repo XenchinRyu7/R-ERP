@@ -9,6 +9,7 @@ import { WarehousesPage } from './pages/WarehousesPage';
 import { ProcurementPage } from './pages/ProcurementPage';
 import { InventoryPage } from './pages/InventoryPage';
 import { SalesPage } from './pages/SalesPage';
+import { ProductionPage } from './pages/ProductionPage';
 import { TransactionsPage } from './pages/TransactionsPage';
 import { erpApi } from './api/erpApi';
 import {
@@ -23,6 +24,8 @@ import {
   InventoryTransaction,
   SalesOrder,
   DashboardMetrics,
+  Recipe,
+  ProductionOrder,
 } from './types/erp';
 
 export function App() {
@@ -42,6 +45,8 @@ export function App() {
   const [stocks, setStocks] = useState<InventoryStock[]>([]);
   const [transactions, setTransactions] = useState<InventoryTransaction[]>([]);
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [productionOrders, setProductionOrders] = useState<ProductionOrder[]>([]);
 
   // Cross-page action state (e.g. from PO -> Receive in Inventory)
   const [preselectedPo, setPreselectedPo] = useState<PurchaseOrder | null>(null);
@@ -73,6 +78,8 @@ export function App() {
         stockRes,
         txRes,
         soRes,
+        recipesRes,
+        prodOrdersRes,
       ] = await Promise.allSettled([
         erpApi.getDashboardMetrics(),
         erpApi.getCategories(),
@@ -85,6 +92,8 @@ export function App() {
         erpApi.getStocks(),
         erpApi.getTransactions(),
         erpApi.getSalesOrders(),
+        erpApi.getRecipes(),
+        erpApi.getProductionOrders(),
       ]);
 
       if (metricsRes.status === 'fulfilled') setMetrics(metricsRes.value);
@@ -98,6 +107,8 @@ export function App() {
       if (stockRes.status === 'fulfilled') setStocks(stockRes.value);
       if (txRes.status === 'fulfilled') setTransactions(txRes.value);
       if (soRes.status === 'fulfilled') setSalesOrders(soRes.value);
+      if (recipesRes.status === 'fulfilled') setRecipes(recipesRes.value);
+      if (prodOrdersRes.status === 'fulfilled') setProductionOrders(prodOrdersRes.value);
     } catch (err) {
       console.error('Failed to load ERP data:', err);
     } finally {
@@ -141,6 +152,8 @@ export function App() {
         return { title: 'Procurement Management', subtitle: 'Purchase orders, supplier approvals, and receiving status' };
       case 'inventory':
         return { title: 'Inventory & Receiving', subtitle: 'Live warehouse stock balances, low stock alerts, and goods receipts' };
+      case 'production':
+        return { title: 'Central Kitchen & Production', subtitle: 'Standard recipe BOMs, commissary batch work orders, and automatic ingredient stock conversions' };
       case 'sales':
         return { title: 'Restaurant Branch Orders', subtitle: 'Central kitchen commissary dispatches to restaurant outlets' };
       case 'transactions':
@@ -231,6 +244,15 @@ export function App() {
                 onRefresh={loadData}
                 preselectedPoForReceive={preselectedPo}
                 onClearPreselectedPo={() => setPreselectedPo(null)}
+              />
+            )}
+            {activePage === 'production' && (
+              <ProductionPage
+                recipes={recipes}
+                productionOrders={productionOrders}
+                products={products}
+                warehouses={warehouses}
+                onRefresh={loadData}
               />
             )}
             {activePage === 'sales' && (

@@ -10,6 +10,8 @@ import {
   InventoryTransaction,
   SalesOrder,
   DashboardMetrics,
+  Recipe,
+  ProductionOrder,
 } from '../types/erp';
 
 const API_BASE = '/api';
@@ -176,5 +178,62 @@ export const erpApi = {
     fetchJson<SalesOrder>(`/sales/orders/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
+    }),
+
+  // Central Kitchen & Production (BOM)
+  getRecipes: () => fetchJson<Recipe[]>('/production/recipes'),
+  getRecipeById: (id: string) => fetchJson<Recipe>(`/production/recipes/${id}`),
+  createRecipe: (data: {
+    code?: string;
+    name: string;
+    targetProductId: string;
+    yieldQuantity: number;
+    unit: string;
+    description?: string;
+    items: Array<{
+      ingredientProductId: string;
+      quantity: number;
+      unit: string;
+      notes?: string;
+    }>;
+  }) =>
+    fetchJson<Recipe>('/production/recipes', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getProductionOrders: () => fetchJson<ProductionOrder[]>('/production/orders'),
+  getProductionOrderById: (id: string) => fetchJson<ProductionOrder>(`/production/orders/${id}`),
+  createProductionOrder: (data: {
+    recipeId: string;
+    warehouseId: string;
+    plannedQuantity: number;
+    notes?: string;
+    createdBy?: string;
+  }) =>
+    fetchJson<ProductionOrder>('/production/orders', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  startProductionOrder: (id: string) =>
+    fetchJson<ProductionOrder>(`/production/orders/${id}/start`, {
+      method: 'PATCH',
+    }),
+  completeProductionOrder: (
+    id: string,
+    data?: {
+      actualProducedQuantity?: number;
+      consumedItems?: Array<{ ingredientProductId: string; actualQuantity: number }>;
+      notes?: string;
+    }
+  ) =>
+    fetchJson<ProductionOrder>(`/production/orders/${id}/complete`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    }),
+  cancelProductionOrder: (id: string, reason?: string) =>
+    fetchJson<ProductionOrder>(`/production/orders/${id}/cancel`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
     }),
 };

@@ -184,3 +184,63 @@ export interface DashboardMetrics {
   recentSalesOrders: SalesOrder[];
   recentTransactions: InventoryTransaction[];
 }
+
+export interface RecipeItem {
+  id?: string;
+  ingredientProductId: string;
+  ingredientProductCode?: string;
+  ingredientProductName?: string;
+  quantity: number;
+  unit: string;
+  notes?: string;
+}
+
+export interface Recipe {
+  id: string;
+  code: string;
+  name: string;
+  targetProductId: string;
+  targetProductCode?: string;
+  targetProductName?: string;
+  yieldQuantity: number;
+  unit: string;
+  description?: string;
+  status: 'ACTIVE' | 'INACTIVE';
+  items: RecipeItem[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface ProductionOrderItem {
+  id?: string;
+  ingredientProductId: string;
+  ingredientProductCode?: string;
+  ingredientProductName?: string;
+  plannedQuantity: number;
+  actualConsumedQuantity: number;
+  unit: string;
+}
+
+export interface ProductionOrder {
+  id: string;
+  orderNumber: string;
+  recipeId: string;
+  recipeCode?: string;
+  recipeName?: string;
+  targetProductId: string;
+  targetProductCode?: string;
+  targetProductName?: string;
+  warehouseId: string;
+  warehouseCode?: string;
+  warehouseName?: string;
+  plannedQuantity: number;
+  actualQuantity: number;
+  status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  startDate?: string;
+  completedDate?: string;
+  notes?: string;
+  createdBy?: string;
+  items: ProductionOrderItem[];
+  createdAt: string;
+  updatedAt?: string;
+}
