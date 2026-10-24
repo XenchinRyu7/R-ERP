@@ -13,10 +13,8 @@ import {
   ChevronRight,
   ChefHat,
   ShieldCheck,
-  LogOut,
-  UserCheck
 } from 'lucide-react';
-import { Chip, Button } from '@heroui/react';
+import { Chip } from '@heroui/react';
 import { AuthUser, UserRole } from '../types/erp';
 
 export type ActivePage = 
@@ -36,7 +34,6 @@ interface SidebarProps {
   activePage: ActivePage;
   setActivePage: (page: ActivePage) => void;
   currentUser?: AuthUser | null;
-  onLogout?: () => void;
   pendingApprovalsCount?: number;
   lowStockCount?: number;
   activePoCount?: number;
@@ -46,7 +43,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activePage,
   setActivePage,
   currentUser,
-  onLogout,
   pendingApprovalsCount = 0,
   lowStockCount = 0,
   activePoCount = 0,
@@ -134,27 +130,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }))
     .filter((group) => group.items.length > 0);
 
-  const getRoleBadge = (userRole?: UserRole) => {
-    switch (userRole) {
-      case 'SUPERADMIN':
-        return { label: 'Super Admin', color: 'primary' as const };
-      case 'KITCHEN_MANAGER':
-        return { label: 'Head Chef / Kitchen', color: 'warning' as const };
-      case 'WAREHOUSE_LOGISTICS':
-        return { label: 'Logistics / Warehouse', color: 'secondary' as const };
-      case 'PROCUREMENT_OFFICER':
-        return { label: 'Procurement Officer', color: 'default' as const };
-      case 'MITRA_OUTLET':
-        return { label: 'Mitra Outlet', color: 'success' as const };
-      case 'SUPPLIER_VENDOR':
-        return { label: 'Supplier Vendor', color: 'danger' as const };
-      default:
-        return { label: 'User', color: 'default' as const };
-    }
-  };
-
-  const roleInfo = getRoleBadge(currentUser?.role);
-
   return (
     <aside className="w-64 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex flex-col h-screen shrink-0 select-none">
       {/* Brand Header */}
@@ -217,48 +192,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ))}
       </nav>
-
-      {/* User Profile & Logout Footer */}
-      {currentUser && (
-        <div className="p-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50">
-          <div className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700/80 shadow-sm">
-            <div className="flex items-center gap-2.5 min-w-0 flex-1">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center shrink-0">
-                {currentUser.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'U'}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 truncate">
-                  {currentUser.fullName || currentUser.username}
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <Chip
-                    size="sm"
-                    color={roleInfo.color}
-                    variant="flat"
-                    className="h-4 text-[9px] px-1 font-semibold"
-                  >
-                    {roleInfo.label}
-                  </Chip>
-                </div>
-              </div>
-            </div>
-
-            {onLogout && (
-              <Button
-                isIconOnly
-                size="sm"
-                variant="light"
-                color="danger"
-                className="shrink-0 text-neutral-400 hover:text-red-600"
-                onClick={onLogout}
-                title="Log out"
-              >
-                <LogOut className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
     </aside>
   );
 };

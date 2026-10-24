@@ -51,20 +51,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const [regPassword, setRegPassword] = useState('');
   const [regNotes, setRegNotes] = useState('');
 
-  const demoAccounts = [
-    { label: 'Superadmin', username: 'admin', pass: 'admin123', role: 'SUPERADMIN', color: 'primary' as const, icon: Users },
-    { label: 'Chef Kitchen', username: 'chef.juna', pass: 'kitchen123', role: 'KITCHEN_MANAGER', color: 'warning' as const, icon: ChefHat },
-    { label: 'Logistics', username: 'warehouse.budi', pass: 'warehouse123', role: 'WAREHOUSE_LOGISTICS', color: 'secondary' as const, icon: Boxes },
-    { label: 'Purchasing', username: 'procure.siti', pass: 'procure123', role: 'PROCUREMENT_OFFICER', color: 'default' as const, icon: ShoppingCart },
-    { label: 'Mitra Outlet', username: 'mitra.senopati', pass: 'mitra123', role: 'MITRA_OUTLET', color: 'success' as const, icon: Store },
-    { label: 'Vendor Mitra', username: 'vendor.boga', pass: 'vendor123', role: 'SUPPLIER_VENDOR', color: 'danger' as const, icon: Truck },
-  ];
-
-  const handleSelectDemo = (acc: typeof demoAccounts[0]) => {
-    setLoginIdentifier(acc.username);
-    setLoginPassword(acc.pass);
-    setErrorMsg(null);
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,26 +193,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               Masuk ke Dashboard
             </Button>
 
-            {/* Quick Demo Selector */}
-            <div className="pt-4 border-t border-neutral-100 dark:border-neutral-800">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400 block mb-2 text-center">
-                Demo Quick-Login (Pilih Role):
-              </span>
-              <div className="flex flex-wrap gap-1.5 justify-center">
-                {demoAccounts.map((acc) => (
-                  <Button
-                    key={acc.username}
-                    size="sm"
-                    variant="flat"
-                    color={acc.color}
-                    onPress={() => handleSelectDemo(acc)}
-                    className="text-[11px] font-semibold h-7 px-2.5 rounded-lg"
-                  >
-                    {acc.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
           </form>
         )}
 

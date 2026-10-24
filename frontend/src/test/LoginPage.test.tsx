@@ -25,24 +25,7 @@ describe('LoginPage Component', () => {
     expect(screen.getByText('Food ERP Portal')).toBeInTheDocument();
     expect(screen.getByText('Masuk (Login)')).toBeInTheDocument();
     expect(screen.getByText('Daftar Mitra / Outlet')).toBeInTheDocument();
-    expect(screen.getByText(/Demo Quick-Login/i)).toBeInTheDocument();
-    expect(screen.getByText('Superadmin')).toBeInTheDocument();
-    expect(screen.getByText('Mitra Outlet')).toBeInTheDocument();
-  });
-
-  it('populates demo credentials when clicking a demo role chip', () => {
-    const handleLoginSuccess = vi.fn();
-    render(
-      <HeroUIProvider>
-        <LoginPage onLoginSuccess={handleLoginSuccess} />
-      </HeroUIProvider>
-    );
-
-    const chefChip = screen.getByText('Chef Kitchen');
-    fireEvent.click(chefChip);
-
-    const usernameInput = screen.getByPlaceholderText('admin atau email@fooderp.com') as HTMLInputElement;
-    expect(usernameInput.value).toBe('chef.juna');
+    expect(screen.getByRole('button', { name: /Masuk ke Dashboard/i })).toBeInTheDocument();
   });
 
   it('triggers login API and calls onLoginSuccess on valid response', async () => {

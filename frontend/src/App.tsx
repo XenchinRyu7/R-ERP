@@ -231,7 +231,6 @@ export function App() {
         activePage={activePage}
         setActivePage={setActivePage}
         currentUser={currentUser}
-        onLogout={handleLogout}
         pendingApprovalsCount={pendingApprovalsCount}
         lowStockCount={lowStockCount}
         activePoCount={activePoCount}
@@ -246,6 +245,9 @@ export function App() {
           toggleTheme={toggleTheme}
           onRefresh={loadData}
           isLoading={isLoading}
+          currentUser={currentUser}
+          onLogout={handleLogout}
+          onNavigate={setActivePage}
         />
 
         <main className="flex-1 overflow-y-auto p-6">
