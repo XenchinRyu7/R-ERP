@@ -28,7 +28,7 @@ import {
   Tabs,
   Tab
 } from '@heroui/react';
-import { SalesOrder, Customer, Warehouse, Product } from '../types/erp';
+import { SalesOrder, Customer, Warehouse, Product, AuthUser } from '../types/erp';
 import { erpApi } from '../api/erpApi';
 
 interface SalesPageProps {
@@ -37,6 +37,7 @@ interface SalesPageProps {
   warehouses: Warehouse[];
   products: Product[];
   onRefresh: () => void;
+  currentUser?: AuthUser | null;
 }
 
 export const SalesPage: React.FC<SalesPageProps> = ({
@@ -45,7 +46,19 @@ export const SalesPage: React.FC<SalesPageProps> = ({
   warehouses,
   products,
   onRefresh,
+  currentUser,
 }) => {
+  const isMitra = currentUser?.role === 'MITRA_OUTLET';
+
+  // Filter orders for mitra
+  const roleFilteredOrders = isMitra
+    ? salesOrders.filter((so) => {
+        if (currentUser?.customerId && so.customerId === currentUser.customerId) return true;
+        if (currentUser?.partnerName && so.customerName && so.customerName.toLowerCase().includes(currentUser.partnerName.toLowerCase())) return true;
+        return false;
+      })
+    : salesOrders;
+
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [viewingSo, setViewingSo] = useState<SalesOrder | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,10 +89,17 @@ export const SalesPage: React.FC<SalesPageProps> = ({
   >([]);
 
   const handleOpenCreate = () => {
-    setSelectedCustomerId(customers[0]?.id || '');
+    let defaultCustId = customers[0]?.id || '';
+    if (isMitra && currentUser?.customerId) {
+      defaultCustId = currentUser.customerId;
+    } else if (isMitra && currentUser?.partnerName) {
+      const match = customers.find((c) => c.name.toLowerCase().includes(currentUser.partnerName!.toLowerCase()));
+      if (match) defaultCustId = match.id;
+    }
+    setSelectedCustomerId(defaultCustId);
     setSelectedWarehouseId(warehouses[0]?.id || '');
-    setNotes('');
-    setCreatedBy('Branch Dispatch Rep');
+    setNotes(isMitra ? `Pesanan restock cabang oleh: ${currentUser?.fullName || currentUser?.username}` : '');
+    setCreatedBy(currentUser?.fullName || (isMitra ? 'PIC Mitra Outlet' : 'Branch Dispatch Rep'));
     if (products.length > 0) {
       setItems([
         {
@@ -169,7 +189,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     }
   };
 
-  const filteredOrders = salesOrders.filter((so) => {
+  const filteredOrders = roleFilteredOrders.filter((so) => {
     if (selectedStatus === 'all') return true;
     return so.status === selectedStatus;
   });
@@ -192,7 +212,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
           color="primary"
           variant="underlined"
         >
-          <Tab key="all" title={`All Orders (${salesOrders.length})`} />
+          <Tab key="all" title={`All Orders (${roleFilteredOrders.length})`} />
           <Tab key="CONFIRMED" title="Confirmed" />
           <Tab key="SHIPPED" title="Shipped" />
           <Tab key="DELIVERED" title="Delivered" />
@@ -205,7 +225,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
           startContent={<Plus className="w-4 h-4" />}
           onClick={handleOpenCreate}
         >
-          Create Branch Order
+          {isMitra ? 'Ajukan Pesanan Restock' : 'Create Branch Order'}
         </Button>
       </div>
 
@@ -281,7 +301,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                     >
                       Details
                     </Button>
-                    {so.status === 'CONFIRMED' && (
+                    {!isMitra && so.status === 'CONFIRMED' && (
                       <Button
                         size="sm"
                         color="secondary"
@@ -300,7 +320,7 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                         onClick={() => handleStatusChange(so.id, 'DELIVERED')}
                         startContent={<CheckCircle2 className="w-3.5 h-3.5" />}
                       >
-                        Delivered
+                        {isMitra ? 'Konfirmasi Terima' : 'Delivered'}
                       </Button>
                     )}
                   </div>

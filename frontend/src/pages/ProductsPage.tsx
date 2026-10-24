@@ -25,20 +25,23 @@ import {
   SelectItem,
   Textarea
 } from '@heroui/react';
-import { Product, ProductCategory } from '../types/erp';
+import { Product, ProductCategory, AuthUser } from '../types/erp';
 import { erpApi } from '../api/erpApi';
 
 interface ProductsPageProps {
   products: Product[];
   categories: ProductCategory[];
   onRefresh: () => void;
+  currentUser?: AuthUser | null;
 }
 
 export const ProductsPage: React.FC<ProductsPageProps> = ({
   products,
   categories,
   onRefresh,
+  currentUser,
 }) => {
+  const isMitra = currentUser?.role === 'MITRA_OUTLET';
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -173,15 +176,17 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
           </Select>
         </div>
 
-        <Button
-          color="primary"
-          size="sm"
-          className="font-semibold shadow-md shadow-blue-500/20"
-          startContent={<Plus className="w-4 h-4" />}
-          onClick={handleOpenAdd}
-        >
-          Add New Product
-        </Button>
+        {!isMitra && (
+          <Button
+            color="primary"
+            size="sm"
+            className="font-semibold shadow-md shadow-blue-500/20"
+            startContent={<Plus className="w-4 h-4" />}
+            onClick={handleOpenAdd}
+          >
+            Add New Product
+          </Button>
+        )}
       </div>
 
       {/* HeroUI Products Table */}
@@ -192,11 +197,11 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
             <TableColumn>PRODUCT NAME</TableColumn>
             <TableColumn>CATEGORY</TableColumn>
             <TableColumn>UNIT</TableColumn>
-            <TableColumn>PURCHASE PRICE</TableColumn>
-            <TableColumn>SELLING PRICE</TableColumn>
+            {!isMitra ? <TableColumn>PURCHASE PRICE</TableColumn> : <TableColumn className="hidden">HIDDEN</TableColumn>}
+            <TableColumn>{isMitra ? 'HARGA PASOKAN (IDR)' : 'SELLING PRICE'}</TableColumn>
             <TableColumn>MIN STOCK</TableColumn>
             <TableColumn>STATUS</TableColumn>
-            <TableColumn className="text-right">ACTIONS</TableColumn>
+            {!isMitra ? <TableColumn className="text-right">ACTIONS</TableColumn> : <TableColumn className="hidden">HIDDEN</TableColumn>}
           </TableHeader>
           <TableBody emptyContent="No products found matching criteria.">
             {filteredProducts.map((p) => (
@@ -224,9 +229,13 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                     {p.unit}
                   </Chip>
                 </TableCell>
-                <TableCell className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                  {formatIDR(p.purchasePrice)}
-                </TableCell>
+                {!isMitra ? (
+                  <TableCell className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
+                    {formatIDR(p.purchasePrice)}
+                  </TableCell>
+                ) : (
+                  <TableCell className="hidden">-</TableCell>
+                )}
                 <TableCell className="text-xs font-bold text-neutral-900 dark:text-neutral-100">
                   {formatIDR(p.sellingPrice)}
                 </TableCell>
@@ -243,28 +252,32 @@ export const ProductsPage: React.FC<ProductsPageProps> = ({
                     {p.status}
                   </Chip>
                 </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      isIconOnly
-                      size="sm"
-                      variant="light"
-                      onClick={() => handleOpenEdit(p)}
-                      className="text-neutral-500 hover:text-blue-600"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      isIconOnly
-                      size="sm"
-                      variant="light"
-                      onClick={() => handleDelete(p.id)}
-                      className="text-neutral-500 hover:text-rose-600"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </TableCell>
+                {!isMitra ? (
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        onClick={() => handleOpenEdit(p)}
+                        className="text-neutral-500 hover:text-blue-600"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        onClick={() => handleDelete(p.id)}
+                        className="text-neutral-500 hover:text-rose-600"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                ) : (
+                  <TableCell className="hidden">-</TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

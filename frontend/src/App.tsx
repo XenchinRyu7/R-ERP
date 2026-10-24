@@ -255,6 +255,14 @@ export function App() {
             {activePage === 'dashboard' && (
               <DashboardPage
                 metrics={metrics}
+                currentUser={currentUser}
+                salesOrders={salesOrders}
+                products={products}
+                purchaseOrders={purchaseOrders}
+                recipes={recipes}
+                productionOrders={productionOrders}
+                stocks={stocks}
+                warehouses={warehouses}
                 onNavigate={setActivePage}
                 onQuickAction={handleQuickAction}
               />
@@ -272,6 +280,7 @@ export function App() {
                 products={products}
                 categories={categories}
                 onRefresh={loadData}
+                currentUser={currentUser}
               />
             )}
             {activePage === 'categories' && (
@@ -332,6 +341,7 @@ export function App() {
                 warehouses={warehouses}
                 products={products}
                 onRefresh={loadData}
+                currentUser={currentUser}
               />
             )}
             {activePage === 'transactions' && (
