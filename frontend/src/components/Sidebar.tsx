@@ -11,12 +11,17 @@ import {
   History,
   Store,
   ChevronRight,
-  ChefHat
+  ChefHat,
+  ShieldCheck,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
-import { Chip } from '@heroui/react';
+import { Chip, Button } from '@heroui/react';
+import { AuthUser, UserRole } from '../types/erp';
 
 export type ActivePage = 
   | 'dashboard' 
+  | 'users'
   | 'products' 
   | 'categories' 
   | 'partners' 
@@ -30,6 +35,9 @@ export type ActivePage =
 interface SidebarProps {
   activePage: ActivePage;
   setActivePage: (page: ActivePage) => void;
+  currentUser?: AuthUser | null;
+  onLogout?: () => void;
+  pendingApprovalsCount?: number;
   lowStockCount?: number;
   activePoCount?: number;
 }
@@ -37,14 +45,48 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({
   activePage,
   setActivePage,
+  currentUser,
+  onLogout,
+  pendingApprovalsCount = 0,
   lowStockCount = 0,
   activePoCount = 0,
 }) => {
-  const menuGroups = [
+  const role: UserRole = currentUser?.role || 'SUPERADMIN';
+
+  // Role permissions checker
+  const canAccess = (page: ActivePage): boolean => {
+    switch (role) {
+      case 'SUPERADMIN':
+        return true;
+      case 'KITCHEN_MANAGER':
+        return ['dashboard', 'production', 'inventory', 'products', 'transactions'].includes(page);
+      case 'WAREHOUSE_LOGISTICS':
+        return ['dashboard', 'inventory', 'warehouses', 'products', 'transactions'].includes(page);
+      case 'PROCUREMENT_OFFICER':
+        return ['dashboard', 'procurement', 'partners', 'products', 'inventory', 'transactions'].includes(page);
+      case 'MITRA_OUTLET':
+        return ['dashboard', 'sales', 'products'].includes(page);
+      case 'SUPPLIER_VENDOR':
+        return ['dashboard', 'procurement'].includes(page);
+      default:
+        return false;
+    }
+  };
+
+  const rawMenuGroups = [
     {
       group: 'OVERVIEW',
       items: [
         { id: 'dashboard' as ActivePage, label: 'Dashboard', icon: LayoutDashboard },
+        ...(role === 'SUPERADMIN' ? [
+          {
+            id: 'users' as ActivePage,
+            label: 'Users & Mitra Approvals',
+            icon: ShieldCheck,
+            badge: pendingApprovalsCount > 0 ? `${pendingApprovalsCount} pending` : undefined,
+            badgeColor: 'warning' as const,
+          }
+        ] : []),
       ],
     },
     {
@@ -61,7 +103,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       items: [
         {
           id: 'procurement' as ActivePage,
-          label: 'Procurement (PO)',
+          label: role === 'SUPPLIER_VENDOR' ? 'Vendor Purchase Orders' : 'Procurement (PO)',
           icon: ShoppingCart,
           badge: activePoCount > 0 ? `${activePoCount}` : undefined,
           badgeColor: 'primary' as const,
@@ -74,11 +116,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badgeColor: 'danger' as const,
         },
         { id: 'production' as ActivePage, label: 'Central Kitchen (BOM)', icon: ChefHat },
-        { id: 'sales' as ActivePage, label: 'Branch Orders (SO)', icon: Store },
+        {
+          id: 'sales' as ActivePage,
+          label: role === 'MITRA_OUTLET' ? 'Outlet Restock Orders' : 'Branch Orders (SO)',
+          icon: Store,
+        },
         { id: 'transactions' as ActivePage, label: 'Stock Movement Log', icon: History },
       ],
     },
   ];
+
+  // Filter groups and items according to role permissions
+  const menuGroups = rawMenuGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => canAccess(item.id)),
+    }))
+    .filter((group) => group.items.length > 0);
+
+  const getRoleBadge = (userRole?: UserRole) => {
+    switch (userRole) {
+      case 'SUPERADMIN':
+        return { label: 'Super Admin', color: 'primary' as const };
+      case 'KITCHEN_MANAGER':
+        return { label: 'Head Chef / Kitchen', color: 'warning' as const };
+      case 'WAREHOUSE_LOGISTICS':
+        return { label: 'Logistics / Warehouse', color: 'secondary' as const };
+      case 'PROCUREMENT_OFFICER':
+        return { label: 'Procurement Officer', color: 'default' as const };
+      case 'MITRA_OUTLET':
+        return { label: 'Mitra Outlet', color: 'success' as const };
+      case 'SUPPLIER_VENDOR':
+        return { label: 'Supplier Vendor', color: 'danger' as const };
+      default:
+        return { label: 'User', color: 'default' as const };
+    }
+  };
+
+  const roleInfo = getRoleBadge(currentUser?.role);
 
   return (
     <aside className="w-64 border-r border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 flex flex-col h-screen shrink-0 select-none">
@@ -143,18 +218,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ))}
       </nav>
 
-      {/* Footer System Status */}
-      <div className="p-4 border-t border-neutral-200 dark:border-neutral-800">
-        <div className="bg-neutral-100 dark:bg-neutral-800/60 rounded-xl p-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <div>
-              <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200">Backend Connected</p>
-              <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Modular Monolith</p>
+      {/* User Profile & Logout Footer */}
+      {currentUser && (
+        <div className="p-3 border-t border-neutral-200 dark:border-neutral-800 bg-neutral-50/50 dark:bg-neutral-900/50">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-neutral-800 border border-neutral-200/80 dark:border-neutral-700/80 shadow-sm">
+            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 font-bold text-xs flex items-center justify-center shrink-0">
+                {currentUser.fullName ? currentUser.fullName.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-neutral-800 dark:text-neutral-200 truncate">
+                  {currentUser.fullName || currentUser.username}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <Chip
+                    size="sm"
+                    color={roleInfo.color}
+                    variant="flat"
+                    className="h-4 text-[9px] px-1 font-semibold"
+                  >
+                    {roleInfo.label}
+                  </Chip>
+                </div>
+              </div>
             </div>
+
+            {onLogout && (
+              <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                color="danger"
+                className="shrink-0 text-neutral-400 hover:text-red-600"
+                onClick={onLogout}
+                title="Log out"
+              >
+                <LogOut className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
-      </div>
+      )}
     </aside>
   );
 };

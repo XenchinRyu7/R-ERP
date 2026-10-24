@@ -244,3 +244,39 @@ export interface ProductionOrder {
   createdAt: string;
   updatedAt?: string;
 }
+
+export type UserRole =
+  | 'SUPERADMIN'
+  | 'KITCHEN_MANAGER'
+  | 'WAREHOUSE_LOGISTICS'
+  | 'PROCUREMENT_OFFICER'
+  | 'MITRA_OUTLET'
+  | 'SUPPLIER_VENDOR';
+
+export type UserStatus = 'ACTIVE' | 'PENDING_APPROVAL' | 'INACTIVE' | 'REJECTED';
+
+export interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  phone?: string;
+  status: UserStatus;
+  partnerType?: 'OUTLET' | 'VENDOR' | null;
+  partnerName?: string;
+  customerId?: string;
+  customerName?: string;
+  supplierId?: string;
+  supplierName?: string;
+  approvalNotes?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  createdAt: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  tokenType: string;
+  user: AuthUser;
+}

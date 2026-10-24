@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sidebar, ActivePage } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
+import { LoginPage } from './pages/LoginPage';
+import { UsersPage } from './pages/UsersPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProductsPage } from './pages/ProductsPage';
 import { CategoriesPage } from './pages/CategoriesPage';
@@ -26,14 +28,30 @@ import {
   DashboardMetrics,
   Recipe,
   ProductionOrder,
+  AuthUser,
 } from './types/erp';
 
 export function App() {
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => {
+    const saved = localStorage.getItem('food_erp_user');
+    const token = localStorage.getItem('food_erp_token');
+    if (saved && token) {
+      try {
+        return JSON.parse(saved) as AuthUser;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
   const [activePage, setActivePage] = useState<ActivePage>('dashboard');
   const [isDark, setIsDark] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   // Core Data States
+  const [users, setUsers] = useState<AuthUser[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -64,8 +82,32 @@ export function App() {
 
   // Load all ERP data
   const loadData = useCallback(async () => {
+    if (!currentUser) return;
     setIsLoading(true);
     try {
+      const promises: Promise<unknown>[] = [
+        erpApi.getDashboardMetrics(),
+        erpApi.getCategories(),
+        erpApi.getProducts(),
+        erpApi.getSuppliers(),
+        erpApi.getCustomers(),
+        erpApi.getWarehouses(),
+        erpApi.getPurchaseOrders(),
+        erpApi.getGoodsReceipts(),
+        erpApi.getStocks(),
+        erpApi.getTransactions(),
+        erpApi.getSalesOrders(),
+        erpApi.getRecipes(),
+        erpApi.getProductionOrders(),
+      ];
+
+      // Fetch users if superadmin
+      if (currentUser.role === 'SUPERADMIN') {
+        promises.push(erpApi.getUsers());
+      }
+
+      const results = await Promise.allSettled(promises);
+
       const [
         metricsRes,
         catRes,
@@ -80,45 +122,52 @@ export function App() {
         soRes,
         recipesRes,
         prodOrdersRes,
-      ] = await Promise.allSettled([
-        erpApi.getDashboardMetrics(),
-        erpApi.getCategories(),
-        erpApi.getProducts(),
-        erpApi.getSuppliers(),
-        erpApi.getCustomers(),
-        erpApi.getWarehouses(),
-        erpApi.getPurchaseOrders(),
-        erpApi.getGoodsReceipts(),
-        erpApi.getStocks(),
-        erpApi.getTransactions(),
-        erpApi.getSalesOrders(),
-        erpApi.getRecipes(),
-        erpApi.getProductionOrders(),
-      ]);
+      ] = results;
 
-      if (metricsRes.status === 'fulfilled') setMetrics(metricsRes.value);
-      if (catRes.status === 'fulfilled') setCategories(catRes.value);
-      if (prodRes.status === 'fulfilled') setProducts(prodRes.value);
-      if (supRes.status === 'fulfilled') setSuppliers(supRes.value);
-      if (custRes.status === 'fulfilled') setCustomers(custRes.value);
-      if (whRes.status === 'fulfilled') setWarehouses(whRes.value);
-      if (poRes.status === 'fulfilled') setPurchaseOrders(poRes.value);
-      if (grRes.status === 'fulfilled') setGoodsReceipts(grRes.value);
-      if (stockRes.status === 'fulfilled') setStocks(stockRes.value);
-      if (txRes.status === 'fulfilled') setTransactions(txRes.value);
-      if (soRes.status === 'fulfilled') setSalesOrders(soRes.value);
-      if (recipesRes.status === 'fulfilled') setRecipes(recipesRes.value);
-      if (prodOrdersRes.status === 'fulfilled') setProductionOrders(prodOrdersRes.value);
+      if (metricsRes.status === 'fulfilled') setMetrics(metricsRes.value as DashboardMetrics);
+      if (catRes.status === 'fulfilled') setCategories(catRes.value as ProductCategory[]);
+      if (prodRes.status === 'fulfilled') setProducts(prodRes.value as Product[]);
+      if (supRes.status === 'fulfilled') setSuppliers(supRes.value as Supplier[]);
+      if (custRes.status === 'fulfilled') setCustomers(custRes.value as Customer[]);
+      if (whRes.status === 'fulfilled') setWarehouses(whRes.value as Warehouse[]);
+      if (poRes.status === 'fulfilled') setPurchaseOrders(poRes.value as PurchaseOrder[]);
+      if (grRes.status === 'fulfilled') setGoodsReceipts(grRes.value as GoodsReceipt[]);
+      if (stockRes.status === 'fulfilled') setStocks(stockRes.value as InventoryStock[]);
+      if (txRes.status === 'fulfilled') setTransactions(txRes.value as InventoryTransaction[]);
+      if (soRes.status === 'fulfilled') setSalesOrders(soRes.value as SalesOrder[]);
+      if (recipesRes.status === 'fulfilled') setRecipes(recipesRes.value as Recipe[]);
+      if (prodOrdersRes.status === 'fulfilled') setProductionOrders(prodOrdersRes.value as ProductionOrder[]);
+
+      if (currentUser.role === 'SUPERADMIN' && results[13]?.status === 'fulfilled') {
+        setUsers(results[13].value as AuthUser[]);
+      }
     } catch (err) {
       console.error('Failed to load ERP data:', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    if (currentUser) {
+      loadData();
+    }
+  }, [currentUser, loadData]);
+
+  // Auth Handlers
+  const handleLoginSuccess = (user: AuthUser, token: string) => {
+    localStorage.setItem('food_erp_token', token);
+    localStorage.setItem('food_erp_user', JSON.stringify(user));
+    setCurrentUser(user);
+    setActivePage('dashboard');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('food_erp_token');
+    localStorage.removeItem('food_erp_user');
+    setCurrentUser(null);
+    setActivePage('dashboard');
+  };
 
   // Handler for quick actions from Dashboard or Procurement
   const handleQuickAction = (action: string) => {
@@ -140,6 +189,8 @@ export function App() {
     switch (activePage) {
       case 'dashboard':
         return { title: 'Operational Dashboard', subtitle: 'Real-time overview of inventory, procurement, and branch orders' };
+      case 'users':
+        return { title: 'User & Mitra Approvals', subtitle: 'Manage staff credentials, approve new mitra outlets, and assign vendor access' };
       case 'products':
         return { title: 'Product Catalog', subtitle: 'Manage materials, food ingredients, prices, and safety thresholds' };
       case 'categories':
@@ -163,9 +214,15 @@ export function App() {
     }
   };
 
+  // If user is not logged in, render the login page
+  if (!currentUser) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
+
   const pageMeta = getPageMeta();
   const lowStockCount = stocks.filter((s) => s.isLowStock).length;
   const activePoCount = purchaseOrders.filter((p) => p.status === 'SUBMITTED' || p.status === 'APPROVED').length;
+  const pendingApprovalsCount = users.filter((u) => u.status === 'PENDING_APPROVAL').length;
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-neutral-50 dark:bg-neutral-950 font-sans">
@@ -173,6 +230,9 @@ export function App() {
       <Sidebar
         activePage={activePage}
         setActivePage={setActivePage}
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        pendingApprovalsCount={pendingApprovalsCount}
         lowStockCount={lowStockCount}
         activePoCount={activePoCount}
       />
@@ -195,6 +255,14 @@ export function App() {
                 metrics={metrics}
                 onNavigate={setActivePage}
                 onQuickAction={handleQuickAction}
+              />
+            )}
+            {activePage === 'users' && currentUser.role === 'SUPERADMIN' && (
+              <UsersPage
+                users={users}
+                customers={customers}
+                suppliers={suppliers}
+                onRefresh={loadData}
               />
             )}
             {activePage === 'products' && (

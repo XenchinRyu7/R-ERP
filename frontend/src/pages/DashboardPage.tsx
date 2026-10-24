@@ -85,49 +85,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Banner with Quick Actions */}
-      <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-violet-800 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded-full bg-white/20 text-xs font-semibold uppercase tracking-wider backdrop-blur-sm">
-              Live Operations Control
-            </span>
-          </div>
-          <h2 className="text-2xl font-bold tracking-tight">Food Supply & Processing ERP</h2>
-          <p className="text-blue-100 text-sm max-w-xl mt-1">
-            Centralized management for raw meat, fresh seafood, produce, kitchen commissary, and restaurant branches.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap gap-2.5">
-          <Button
-            size="sm"
-            className="bg-white text-blue-700 font-semibold shadow-md hover:bg-neutral-100"
-            startContent={<Plus className="w-4 h-4" />}
-            onClick={() => onQuickAction('create_po')}
-          >
-            New Purchase Order
-          </Button>
-          <Button
-            size="sm"
-            variant="bordered"
-            className="text-white border-white/40 hover:bg-white/10"
-            startContent={<Boxes className="w-4 h-4" />}
-            onClick={() => onQuickAction('receive_goods')}
-          >
-            Receive Stock
-          </Button>
-          <Button
-            size="sm"
-            variant="bordered"
-            className="text-white border-white/40 hover:bg-white/10"
-            startContent={<Truck className="w-4 h-4" />}
-            onClick={() => onQuickAction('create_so')}
-          >
-            Branch Order
-          </Button>
-        </div>
-      </div>
 
       {/* Metric Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

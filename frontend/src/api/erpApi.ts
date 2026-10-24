@@ -12,21 +12,38 @@ import {
   DashboardMetrics,
   Recipe,
   ProductionOrder,
+  AuthUser,
+  LoginResponse,
 } from '../types/erp';
 
 const API_BASE = '/api';
 
 async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = localStorage.getItem('food_erp_token');
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string>),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const res = await fetch(`${API_BASE}${url}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
     ...options,
+    headers,
   });
   if (!res.ok) {
     const errorText = await res.text();
-    throw new Error(errorText || `API error: ${res.status} ${res.statusText}`);
+    try {
+      const errJson = JSON.parse(errorText);
+      throw new Error(errJson.message || `API error: ${res.status}`);
+    } catch (e: any) {
+      if (e.message && e.message !== 'Unexpected token' && !e.message.startsWith('JSON.parse')) {
+        throw e;
+      }
+      throw new Error(errorText || `API error: ${res.status} ${res.statusText}`);
+    }
   }
   if (res.status === 204) {
     return {} as T;
@@ -235,5 +252,63 @@ export const erpApi = {
     fetchJson<ProductionOrder>(`/production/orders/${id}/cancel`, {
       method: 'PATCH',
       body: JSON.stringify({ reason }),
+    }),
+
+  // Auth & RBAC
+  login: (data: { usernameOrEmail: string; password: string }) =>
+    fetchJson<LoginResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  registerMitra: (data: {
+    username: string;
+    email: string;
+    password: string;
+    fullName: string;
+    phone?: string;
+    role: string;
+    partnerName: string;
+    notes?: string;
+  }) =>
+    fetchJson<AuthUser>('/auth/register-mitra', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  getMe: () => fetchJson<AuthUser>('/auth/me'),
+
+  // User Management (Superadmin)
+  getUsers: () => fetchJson<AuthUser[]>('/users'),
+  getUserById: (id: string) => fetchJson<AuthUser>(`/users/${id}`),
+  createStaff: (data: {
+    username: string;
+    email: string;
+    password: string;
+    fullName: string;
+    phone?: string;
+    role: string;
+  }) =>
+    fetchJson<AuthUser>('/users/staff', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  approveMitra: (
+    id: string,
+    data: {
+      action: 'APPROVE' | 'REJECT';
+      customerId?: string;
+      supplierId?: string;
+      approvalNotes?: string;
+    }
+  ) =>
+    fetchJson<AuthUser>(`/users/${id}/approve`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  updateUserStatus: (id: string, status: string) =>
+    fetchJson<AuthUser>(`/users/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
     }),
 };
