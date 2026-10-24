@@ -4,7 +4,9 @@ import {
   Eye,
   Truck,
   CheckCircle2,
-  Trash
+  Trash,
+  Store,
+  Building
 } from 'lucide-react';
 import {
   Table,
@@ -89,17 +91,26 @@ export const SalesPage: React.FC<SalesPageProps> = ({
   >([]);
 
   const handleOpenCreate = () => {
-    let defaultCustId = customers[0]?.id || '';
-    if (isMitra && currentUser?.customerId) {
-      defaultCustId = currentUser.customerId;
-    } else if (isMitra && currentUser?.partnerName) {
-      const match = customers.find((c) => c.name.toLowerCase().includes(currentUser.partnerName!.toLowerCase()));
-      if (match) defaultCustId = match.id;
+    let targetCustId = customers[0]?.id || '';
+    if (isMitra) {
+      if (currentUser?.customerId && customers.some((c) => c.id === currentUser.customerId)) {
+        targetCustId = currentUser.customerId;
+      } else if (currentUser?.partnerName) {
+        const match = customers.find((c) =>
+          c.name.toLowerCase().includes(currentUser.partnerName!.toLowerCase())
+        );
+        if (match) targetCustId = match.id;
+      }
     }
-    setSelectedCustomerId(defaultCustId);
+    // Fallback to first customer if mapped ID doesn't exist in customer table
+    if (!customers.some((c) => c.id === targetCustId) && customers.length > 0) {
+      targetCustId = customers[0].id;
+    }
+    setSelectedCustomerId(targetCustId);
     setSelectedWarehouseId(warehouses[0]?.id || '');
     setNotes(isMitra ? `Pesanan restock cabang oleh: ${currentUser?.fullName || currentUser?.username}` : '');
     setCreatedBy(currentUser?.fullName || (isMitra ? 'PIC Mitra Outlet' : 'Branch Dispatch Rep'));
+
     if (products.length > 0) {
       setItems([
         {
@@ -135,11 +146,13 @@ export const SalesPage: React.FC<SalesPageProps> = ({
     if (field === 'productId') {
       const prod = products.find((p) => p.id === val);
       updated[index].productId = val;
-      if (prod) updated[index].unitPrice = Number(prod.sellingPrice) || 0;
+      if (prod) {
+        updated[index].unitPrice = Number(prod.sellingPrice) || 0;
+      }
     } else if (field === 'quantity') {
-      updated[index].quantity = Number(val);
+      updated[index].quantity = Math.max(1, Number(val) || 1);
     } else if (field === 'unitPrice') {
-      updated[index].unitPrice = Number(val);
+      updated[index].unitPrice = Math.max(0, Number(val) || 0);
     }
     setItems(updated);
   };
@@ -342,34 +355,63 @@ export const SalesPage: React.FC<SalesPageProps> = ({
           </ModalHeader>
           <ModalBody className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select
-                label="Destination Restaurant Outlet"
-                size="sm"
-                selectedKeys={selectedCustomerId ? [selectedCustomerId] : []}
-                onChange={(e) => setSelectedCustomerId(e.target.value)}
-                required
-              >
-                {customers.map((c) => (
-                  <SelectItem key={c.id}>{c.name}</SelectItem>
-                ))}
-              </Select>
+              {isMitra ? (
+                <div className="p-3 bg-neutral-100/90 dark:bg-neutral-800/90 rounded-xl border border-neutral-200 dark:border-neutral-700">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 block">
+                    Cabang Outlet Pemesan
+                  </span>
+                  <p className="text-sm font-bold text-neutral-900 dark:text-white mt-1 flex items-center gap-2">
+                    <Store className="w-4 h-4 text-blue-600" />
+                    <span>{customers.find((c) => c.id === selectedCustomerId)?.name || currentUser?.partnerName || currentUser?.customerName || 'Cabang Restoran Anda'}</span>
+                    <Chip size="sm" color="success" variant="flat" className="h-4 text-[10px] px-1 font-semibold ml-auto">
+                      Outlet Anda
+                    </Chip>
+                  </p>
+                </div>
+              ) : (
+                <Select
+                  label="Destination Restaurant Outlet"
+                  size="sm"
+                  placeholder="Pilih Cabang Outlet"
+                  selectedKeys={selectedCustomerId ? new Set([selectedCustomerId]) : new Set([])}
+                  onSelectionChange={(keys) => {
+                    const val = Array.from(keys)[0] as string;
+                    if (val) setSelectedCustomerId(val);
+                  }}
+                  isRequired
+                >
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} textValue={c.name}>
+                      {c.name} ({c.code})
+                    </SelectItem>
+                  ))}
+                </Select>
+              )}
 
               <Select
-                label="Fulfillment Warehouse"
+                label="Fulfillment Warehouse (Gudang Asal)"
                 size="sm"
-                selectedKeys={selectedWarehouseId ? [selectedWarehouseId] : []}
-                onChange={(e) => setSelectedWarehouseId(e.target.value)}
-                required
+                placeholder="Pilih Gudang Asal"
+                selectedKeys={selectedWarehouseId ? new Set([selectedWarehouseId]) : new Set([])}
+                onSelectionChange={(keys) => {
+                  const val = Array.from(keys)[0] as string;
+                  if (val) setSelectedWarehouseId(val);
+                }}
+                isRequired
               >
                 {warehouses.map((w) => (
-                  <SelectItem key={w.id}>{w.name}</SelectItem>
+                  <SelectItem key={w.id} textValue={w.name}>
+                    {w.name} ({w.code})
+                  </SelectItem>
                 ))}
               </Select>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold uppercase text-neutral-500">Order Items</h4>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-neutral-500">
+                  Daftar Bahan / Produk Pesanan
+                </h4>
                 <Button
                   size="sm"
                   variant="flat"
@@ -378,26 +420,41 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                   startContent={<Plus className="w-3.5 h-3.5" />}
                   className="h-7 text-xs font-semibold"
                 >
-                  Add Item
+                  Tambah Baris Produk
                 </Button>
               </div>
 
-              <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
                 {items.map((item, idx) => (
                   <div
                     key={idx}
-                    className="grid grid-cols-12 gap-2 items-center p-2 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-100 dark:border-neutral-800"
+                    className="grid grid-cols-12 gap-2.5 items-center p-3 rounded-xl bg-neutral-50 dark:bg-neutral-800/60 border border-neutral-200/80 dark:border-neutral-700/80"
                   >
                     <div className="col-span-5">
                       <Select
                         size="sm"
-                        label="Product"
-                        selectedKeys={[item.productId]}
-                        onChange={(e) => handleItemChange(idx, 'productId', e.target.value)}
+                        label="Produk / Bahan Baku"
+                        placeholder="Pilih Bahan Baku..."
+                        selectedKeys={item.productId ? new Set([item.productId]) : new Set([])}
+                        onSelectionChange={(keys) => {
+                          const val = Array.from(keys)[0] as string;
+                          if (val) handleItemChange(idx, 'productId', val);
+                        }}
+                        aria-label={`Produk item ${idx + 1}`}
                       >
                         {products.map((p) => (
-                          <SelectItem key={p.id}>
-                            {p.name} ({p.unit})
+                          <SelectItem
+                            key={p.id}
+                            textValue={`${p.name} (${p.unit})`}
+                          >
+                            <div className="flex items-center justify-between gap-2 w-full">
+                              <span className="font-semibold text-xs text-neutral-900 dark:text-neutral-100">
+                                {p.name}
+                              </span>
+                              <span className="text-[11px] text-neutral-400 font-mono">
+                                {formatIDR(p.sellingPrice)} / {p.unit}
+                              </span>
+                            </div>
                           </SelectItem>
                         ))}
                       </Select>
@@ -407,7 +464,8 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                       <Input
                         type="number"
                         size="sm"
-                        label="Qty"
+                        label="Kuantitas"
+                        min="1"
                         value={item.quantity.toString()}
                         onChange={(e) => handleItemChange(idx, 'quantity', e.target.value)}
                       />
@@ -417,13 +475,14 @@ export const SalesPage: React.FC<SalesPageProps> = ({
                       <Input
                         type="number"
                         size="sm"
-                        label="Unit Price"
+                        label="Harga Satuan (IDR)"
                         value={item.unitPrice.toString()}
+                        isReadOnly={isMitra}
                         onChange={(e) => handleItemChange(idx, 'unitPrice', e.target.value)}
                       />
                     </div>
 
-                    <div className="col-span-1 text-right text-xs font-bold">
+                    <div className="col-span-1 text-right text-xs font-bold text-neutral-900 dark:text-neutral-100">
                       {formatIDR(item.quantity * item.unitPrice)}
                     </div>
 

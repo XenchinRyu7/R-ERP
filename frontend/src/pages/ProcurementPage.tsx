@@ -321,12 +321,18 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
               <Select
                 label="Select Supplier"
                 size="sm"
-                selectedKeys={selectedSupplierId ? [selectedSupplierId] : []}
-                onChange={(e) => setSelectedSupplierId(e.target.value)}
-                required
+                placeholder="Pilih Supplier Rekanan"
+                selectedKeys={selectedSupplierId ? new Set([selectedSupplierId]) : new Set([])}
+                onSelectionChange={(keys) => {
+                  const val = Array.from(keys)[0] as string;
+                  if (val) setSelectedSupplierId(val);
+                }}
+                isRequired
               >
                 {suppliers.map((s) => (
-                  <SelectItem key={s.id}>{s.name} ({s.code})</SelectItem>
+                  <SelectItem key={s.id} textValue={`${s.name} (${s.code})`}>
+                    {s.name} ({s.code})
+                  </SelectItem>
                 ))}
               </Select>
 
@@ -365,11 +371,16 @@ export const ProcurementPage: React.FC<ProcurementPageProps> = ({
                       <Select
                         size="sm"
                         label="Product"
-                        selectedKeys={[item.productId]}
-                        onChange={(e) => handleItemChange(idx, 'productId', e.target.value)}
+                        placeholder="Pilih Produk..."
+                        selectedKeys={item.productId ? new Set([item.productId]) : new Set([])}
+                        onSelectionChange={(keys) => {
+                          const val = Array.from(keys)[0] as string;
+                          if (val) handleItemChange(idx, 'productId', val);
+                        }}
+                        aria-label={`PO Product item ${idx + 1}`}
                       >
                         {products.map((p) => (
-                          <SelectItem key={p.id}>
+                          <SelectItem key={p.id} textValue={`${p.name} (${p.unit})`}>
                             {p.name} ({p.unit})
                           </SelectItem>
                         ))}
